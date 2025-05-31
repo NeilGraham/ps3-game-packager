@@ -23,6 +23,7 @@ You can parse the game TITLE and TITLE_ID within the file 'PS3_GAME/PARAM.SFO' u
 - For 7z files that are selected, you will first need to extract the 'PS3_GAME/PARAM.SFO' file to parse game information, and efficiently extract all files/folders only within the folder containing 'PS3_GAME' into the output directory.
 - Some games may just be a '.pkg' file, you can ignore those for now.
 - Ensure that non-file characters in the game TITLE are not inserted into the directory. Remove ':', etc. from the TITLE.
+- By default you can compress the 'game/' folder with 7z, but if flag '--decompressed' is passed, you can leave the 'game/' folder uncompressed.
 
 
 Example Usage:

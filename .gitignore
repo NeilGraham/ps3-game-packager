@@ -40,3 +40,6 @@ go.work.sum
 
 PARAM.SFO
 ps3-game-packager
+**/PS3_GAME
+**/PS3_DISC.SFB
+**/.pkg
