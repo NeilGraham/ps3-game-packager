@@ -17,4 +17,34 @@ As an example:
 `-- _dlc
 ```
 
-You can find the game TITLE and TITLE_ID within the file 'PS3_GAME/PARAM.SFO' using the provided script 'PS3Dec R5/Windows/PS3Dec.exe'
+You can parse the game TITLE and TITLE_ID within the file 'PS3_GAME/PARAM.SFO' using 'internal/parsers/param_sfo.go'.
+
+- For selected folders/files, you may need to recursively search inside for the 'PS3_GAME' folder.
+- For 7z files that are selected, you will first need to extract the 'PS3_GAME/PARAM.SFO' file to parse game information, and efficiently extract all files/folders only within the folder containing 'PS3_GAME' into the output directory.
+- Some games may just be a '.pkg' file, you can ignore those for now.
+- Ensure that non-file characters in the game TITLE are not inserted into the directory. Remove ':', etc. from the TITLE.
+
+
+Example Usage:
+
+```bash
+ps3-game-packager pack roms/ps3/* -o roms/ps3/organized/ 
+```
+
+Input:
+
+```
+'3D Dot Game Heroes (USA).zip'
+'Army of Two (USA)'/
+'Battlefield - Bad Company (USA) (Gold Edition)'/
+'Brothers in Arms - Hell'\''s Highway (USA)'/
+```
+
+Output:
+
+```
+'3D DOT GAME HEROES [BLUS30490]'/
+'Army of Two (TM) [BLUS30057]'/
+'BATTLEFIELD Bad Company™ [BLUS30121]'/
+'Brothers in Arms Hell'\''s Highway™ [BLUS30165]'/
+```

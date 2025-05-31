@@ -14,9 +14,15 @@ A collection of tools for working with PS3 game files, starting with PARAM.SFO p
 ### From Source
 
 ```bash
-git clone https://github.com/your-username/ps3-game-packager.git
+git clone https://github.com/NeilGraham/ps3-game-packager.git
 cd ps3-game-packager
 go build -o ps3-game-packager ./cmd/ps3-game-packager
+```
+
+### Using Go Install
+
+```bash
+go install github.com/NeilGraham/ps3-game-packager/cmd/ps3-game-packager@latest
 ```
 
 ## Usage
@@ -48,9 +54,26 @@ Category:    DG
 ./ps3-game-packager parse-param-sfo --json PARAM.SFO
 ```
 
+#### Flexible flag positioning:
+```bash
+./ps3-game-packager parse-param-sfo PARAM.SFO --verbose --json
+./ps3-game-packager parse-param-sfo --json --verbose PARAM.SFO
+```
+
 #### Get help:
 ```bash
 ./ps3-game-packager parse-param-sfo -h
+./ps3-game-packager --help
+```
+
+#### Shell Completion:
+```bash
+# Generate bash completion
+./ps3-game-packager completion bash > ps3-game-packager-completion.bash
+source ps3-game-packager-completion.bash
+
+# Generate PowerShell completion
+./ps3-game-packager completion powershell > ps3-game-packager-completion.ps1
 ```
 
 ## Project Structure
@@ -79,7 +102,7 @@ import (
     "fmt"
     "os"
     
-    "github.com/your-username/ps3-game-packager/internal/parsers"
+    "github.com/NeilGraham/ps3-game-packager/internal/parsers"
 )
 
 func main() {

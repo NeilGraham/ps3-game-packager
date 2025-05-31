@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"ps3-game-packager/internal/parsers"
-
 	"github.com/spf13/cobra"
+
+	"github.com/NeilGraham/ps3-game-packager/internal/parsers"
 )
 
 var (

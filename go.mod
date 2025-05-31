@@ -1,4 +1,4 @@
-module ps3-game-packager
+module github.com/NeilGraham/ps3-game-packager
 
 go 1.21
 
