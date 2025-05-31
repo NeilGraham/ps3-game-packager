@@ -1,188 +1,174 @@
 # PS3 Game Packager
 
-A collection of tools for working with PS3 game files, starting with PARAM.SFO parsing.
+A collection of tools for working with PS3 game files, providing utilities for organizing and optimizing PS3 game collections.
 
 ## Features
 
-- **PARAM.SFO Parser**: Extract game title, title ID, and other metadata from PS3 PARAM.SFO files
-- **Clean API**: Reusable parser package for integration into other tools
-- **Multiple Output Formats**: Text and JSON output support
-- **Robust Error Handling**: Graceful handling of malformed files
+- **Package**: Compress PS3 games into 7z archives with organized directory structure
+- **Unpackage**: Organize PS3 games into decompressed format with standardized structure  
+- **Organize**: Organize PS3 games while preserving their existing format (compressed/decompressed)
+- **Parse PARAM.SFO**: Extract metadata from PS3 game files
 
 ## Installation
 
-### From Source
-
-```bash
-git clone https://github.com/NeilGraham/ps3-game-packager.git
-cd ps3-game-packager
-go build -o ps3-game-packager ./cmd/ps3-game-packager
-```
-
-### Using Go Install
-
-```bash
-go install github.com/NeilGraham/ps3-game-packager/cmd/ps3-game-packager@latest
-```
-
-## Usage
-
-### Parse PARAM.SFO Files
-
-#### Basic usage:
-```bash
-./ps3-game-packager parse-param-sfo PARAM.SFO
-```
-
-Output:
-```
-Summary:
-========
-Game Title:  3D DOT GAME HEROES
-Title ID:    BLUS30490
-App Version: 01.00
-Category:    DG
-```
-
-#### Verbose output:
-```bash
-./ps3-game-packager parse-param-sfo --verbose PARAM.SFO
-```
-
-#### JSON output:
-```bash
-./ps3-game-packager parse-param-sfo --json PARAM.SFO
-```
-
-#### Flexible flag positioning:
-```bash
-./ps3-game-packager parse-param-sfo PARAM.SFO --verbose --json
-./ps3-game-packager parse-param-sfo --json --verbose PARAM.SFO
-```
-
-#### Get help:
-```bash
-./ps3-game-packager parse-param-sfo -h
-./ps3-game-packager --help
-```
-
-#### Shell Completion:
-```bash
-# Generate bash completion
-./ps3-game-packager completion bash > ps3-game-packager-completion.bash
-source ps3-game-packager-completion.bash
-
-# Generate PowerShell completion
-./ps3-game-packager completion powershell > ps3-game-packager-completion.ps1
-```
+1. Clone the repository
+2. Build the application:
+   ```bash
+   go build ./cmd/ps3-game-packager
+   ```
 
 ## Project Structure
 
 ```
 ps3-game-packager/
-├── cmd/
-│   └── ps3-game-packager/
-│       └── main.go              # CLI application entry point
-├── internal/
-│   └── parsers/
-│       └── param_sfo.go         # PARAM.SFO parsing logic
-├── go.mod                       # Go module definition
-├── README.md                    # This file
-└── PARAM.SFO                    # Example file for testing
+├── cmd/ps3-game-packager/          # Main application entry point
+│   └── main.go
+├── internal/                       # Internal packages
+│   ├── common/                     # Shared utilities
+│   │   └── utils.go               # File operations, game info extraction
+│   ├── organizer/                  # Organization logic
+│   │   └── organizer.go           # Organize command implementation
+│   ├── packager/                   # Packaging logic
+│   │   └── packager.go            # Package/unpackage implementations
+│   └── parsers/                    # File parsers
+│       └── param_sfo.go           # PARAM.SFO parser
+├── go.mod
+├── go.sum
+└── README.md
 ```
 
-## API Usage
+## Commands
 
-The parser can also be used as a library:
+### Package Command
 
-```go
-package main
-
-import (
-    "fmt"
-    "os"
-    
-    "github.com/NeilGraham/ps3-game-packager/internal/parsers"
-)
-
-func main() {
-    data, err := os.ReadFile("PARAM.SFO")
-    if err != nil {
-        panic(err)
-    }
-    
-    paramSFO, err := parsers.ParseParamSFO(data)
-    if err != nil {
-        panic(err)
-    }
-    
-    fmt.Printf("Title: %s\n", paramSFO.GetTitle())
-    fmt.Printf("Title ID: %s\n", paramSFO.GetTitleID())
-    fmt.Printf("App Version: %s\n", paramSFO.GetString("APP_VER"))
-}
-```
-
-## PARAM.SFO Format
-
-PARAM.SFO files contain metadata about PS3 games. The format includes:
-
-- **Header**: File version, table offsets, and entry count
-- **Index Table**: Entry definitions with key offsets and data formats
-- **Key Table**: Null-terminated key names
-- **Data Table**: Actual values (strings, integers, etc.)
-
-### Supported Data Types
-
-- `0x0004`: UTF-8 strings (special case)
-- `0x0204`: UTF-8 strings (standard)
-- `0x0404`: 32-bit integers
-
-### Common Keys
-
-- `TITLE`: Game title
-- `TITLE_ID`: Unique game identifier
-- `APP_VER`: Application version
-- `CATEGORY`: Game category (DG for disc games)
-- `ATTRIBUTE`: Game attributes
-- `BOOTABLE`: Whether the game is bootable
-- `LICENSE`: License information
-- `PARENTAL_LEVEL`: Age rating level
-- `PS3_SYSTEM_VER`: Required PS3 system version
-- `RESOLUTION`: Supported resolutions
-- `SOUND_FORMAT`: Supported audio formats
-
-## Development
-
-### Running Tests
+Packages PS3 games into **compressed format** with 7z archives:
 
 ```bash
-go test ./...
+ps3-game-packager package <source> [flags]
 ```
 
-### Building
+**Output Structure:**
+```
+{Game Name} [{Game ID}]/
+├── game.7z          # Compressed game files
+├── _updates/        # Updates folder (empty)
+└── _dlc/           # DLC folder (empty)
+```
+
+**Examples:**
+```bash
+ps3-game-packager package /path/to/game_folder
+ps3-game-packager package --output /target/dir /path/to/game.zip
+ps3-game-packager package --force /path/to/game_folder
+```
+
+### Unpackage Command
+
+Packages PS3 games into **decompressed format** with raw files:
 
 ```bash
-go build -o ps3-game-packager ./cmd/ps3-game-packager
+ps3-game-packager unpackage <source> [flags]
 ```
 
-### Adding New Parsers
+**Output Structure:**
+```
+{Game Name} [{Game ID}]/
+├── game/            # Raw game files (uncompressed)
+├── _updates/        # Updates folder (empty)
+└── _dlc/           # DLC folder (empty)
+```
 
-1. Create a new parser in `internal/parsers/`
-2. Add the command logic to `cmd/ps3-game-packager/main.go`
-3. Update this README with usage examples
+**Examples:**
+```bash
+ps3-game-packager unpackage /path/to/game_folder
+ps3-game-packager unpackage --output /target/dir /path/to/game.zip
+ps3-game-packager unpackage --force /path/to/game_folder
+```
 
-## Contributing
+### Organize Command
 
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request
+Organizes PS3 games while **preserving existing format**:
 
-## License
+```bash
+ps3-game-packager organize <source> [flags]
+```
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+**Output Structure:**
+```
+{Game Name} [{Game ID}]/
+├── game.7z OR game/ # Keeps original format
+├── _updates/        # Updates folder (empty)
+└── _dlc/           # DLC folder (empty)
+```
 
-## Acknowledgments
+This command is useful for:
+- Organizing games already in your preferred format
+- Moving already organized game directories
+- Maintaining existing compression choices
 
-- PARAM.SFO format documentation from PS3 homebrew community
-- Go team for excellent tooling and documentation 
+**Examples:**
+```bash
+ps3-game-packager organize /path/to/game_folder
+ps3-game-packager organize --output /target/dir /path/to/game_folder
+ps3-game-packager organize --force /path/to/existing_organized_game
+```
+
+### Parse PARAM.SFO Command
+
+Extract metadata from PS3 PARAM.SFO files:
+
+```bash
+ps3-game-packager parse-param-sfo <PARAM.SFO file> [flags]
+```
+
+**Examples:**
+```bash
+ps3-game-packager parse-param-sfo PARAM.SFO
+ps3-game-packager parse-param-sfo --verbose PARAM.SFO
+ps3-game-packager parse-param-sfo --json PARAM.SFO
+```
+
+## Flags
+
+All packaging commands support these flags:
+
+- `-o, --output string`: Output directory (default: current directory)
+- `-f, --force`: Overwrite existing output directory
+- `-v, --verbose`: Show detailed information
+- `-h, --help`: Show help for the command
+
+## Requirements
+
+- **7-Zip**: Required for the `package` command to create 7z archives
+  - **Windows**: Download from [7-zip.org](https://www.7-zip.org/) or install via `choco install 7zip`
+  - **macOS**: Install via `brew install p7zip`
+  - **Linux**: Install via package manager (e.g., `sudo apt install p7zip-full`)
+
+## Input Formats
+
+- **PS3 Game Folders**: Decrypted PS3 ISO folder containing `PS3_GAME/PARAM.SFO`
+- **ZIP Archives**: Archive files containing PS3 game folders
+- **Organized Directories**: Already organized game directories (for organize command)
+
+## Game Information Extraction
+
+The tools automatically extract game information from `PS3_GAME/PARAM.SFO` files:
+- Game Title
+- Title ID (e.g., BLUS30490)
+- App Version
+- Category
+
+This information is used to create standardized directory names in the format: `{Game Name} [{Game ID}]`
+
+## Error Handling
+
+The application provides detailed error messages for common issues:
+- Missing PARAM.SFO files
+- Invalid source paths
+- Missing 7z installation
+- File permission issues
+- Disk space problems
+
+## Version
+
+Current version: 1.0.0 

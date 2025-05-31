@@ -43,3 +43,7 @@ ps3-game-packager
 **/PS3_GAME
 **/PS3_DISC.SFB
 **/.pkg
+**/_dlc
+**/_updates
+**/game
+**/game.7z
