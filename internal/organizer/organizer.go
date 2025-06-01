@@ -10,9 +10,10 @@ import (
 
 // OrganizeOptions holds options for organizing operations
 type OrganizeOptions struct {
-	OutputDir string
-	Force     bool
-	Verbose   bool
+	OutputDir  string
+	Force      bool
+	Verbose    bool
+	MoveSource bool
 }
 
 // OrganizeGame organizes a PS3 game while keeping it in its existing format
@@ -29,6 +30,10 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 	}
 
 	if organizedInfo.IsOrganized {
+		if opts.MoveSource {
+			fmt.Printf("⚠️  WARNING: --move flag ignored for already organized directories (safety measure)\n")
+		}
+
 		if opts.Verbose {
 			fmt.Printf("Source is already an organized game directory\n")
 			fmt.Printf("No action needed - directory is already in the correct format\n")
@@ -73,6 +78,30 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 		return err
 	}
 
+	// Clean up existing game files if force is enabled
+	if opts.Force {
+		gameFile := filepath.Join(targetPath, "game.7z")
+		gameDir := filepath.Join(targetPath, "game")
+
+		if _, err := os.Stat(gameFile); err == nil {
+			if opts.Verbose {
+				fmt.Printf("Removing existing game.7z file...\n")
+			}
+			if err := os.Remove(gameFile); err != nil {
+				return fmt.Errorf("removing existing game.7z: %w", err)
+			}
+		}
+
+		if _, err := os.Stat(gameDir); err == nil {
+			if opts.Verbose {
+				fmt.Printf("Removing existing game/ directory...\n")
+			}
+			if err := os.RemoveAll(gameDir); err != nil {
+				return fmt.Errorf("removing existing game/ directory: %w", err)
+			}
+		}
+	}
+
 	// Copy game in its original format
 	sourceInfo, err := os.Stat(sourcePath)
 	if err != nil {
@@ -81,13 +110,24 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 
 	var format string
 	if sourceInfo.IsDir() {
-		// Copy as decompressed game folder
+		// Process as decompressed game folder
 		gameDir := filepath.Join(targetPath, "game")
-		if opts.Verbose {
-			fmt.Printf("Copying game files to game/ folder (keeping decompressed format)...\n")
-		}
-		if err := common.CopyDir(gameInfo.Source, gameDir); err != nil {
-			return fmt.Errorf("copying game files: %w", err)
+
+		if opts.MoveSource {
+			if opts.Verbose {
+				fmt.Printf("Moving game files to game/ folder (keeping decompressed format)...\n")
+				fmt.Printf("⚠️  WARNING: Original directory will be deleted after move\n")
+			}
+			if err := common.MoveDirWithCleanup(gameInfo.Source, gameDir, opts.Force, opts.Verbose); err != nil {
+				return fmt.Errorf("moving game files: %w", err)
+			}
+		} else {
+			if opts.Verbose {
+				fmt.Printf("Copying game files to game/ folder (keeping decompressed format)...\n")
+			}
+			if err := common.CopyDir(gameInfo.Source, gameDir); err != nil {
+				return fmt.Errorf("copying game files: %w", err)
+			}
 		}
 		format = "Decompressed (game/ folder)"
 	} else {

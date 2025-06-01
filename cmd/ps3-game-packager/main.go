@@ -16,6 +16,7 @@ var (
 	jsonOutput bool
 	outputDir  string
 	force      bool
+	moveSource bool
 )
 
 func main() {
@@ -116,10 +117,15 @@ original format (compressed or decompressed):
 This is useful for organizing games that are already in your preferred format
 without changing their compression state.
 
+By default, files are copied to preserve the original directory. Use --move to 
+move files instead (faster, saves disk space, but removes the original).
+The --move flag only works with unorganized directories for safety.
+
 Examples:
   ps3-game-packager organize /path/to/game_folder
   ps3-game-packager organize /path/to/game1 /path/to/game2 /path/to/game3
   ps3-game-packager organize --output /target/dir /path/to/game_folder
+  ps3-game-packager organize --move /path/to/game_folder1 /path/to/game_folder2
   ps3-game-packager organize --force /path/to/existing_organized_game1 /path/to/game2`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: organizeHandler,
@@ -150,6 +156,7 @@ func init() {
 	organizeCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for organized game")
 	organizeCmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing output directory")
 	organizeCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+	organizeCmd.Flags().BoolVarP(&moveSource, "move", "m", false, "Move files instead of copying (deletes source directory - only works with unorganized directories)")
 }
 
 func packageHandler(cmd *cobra.Command, args []string) error {
@@ -172,9 +179,10 @@ func unpackageHandler(cmd *cobra.Command, args []string) error {
 
 func organizeHandler(cmd *cobra.Command, args []string) error {
 	opts := organizer.OrganizeOptions{
-		OutputDir: outputDir,
-		Force:     force,
-		Verbose:   verbose,
+		OutputDir:  outputDir,
+		Force:      force,
+		Verbose:    verbose,
+		MoveSource: moveSource,
 	}
 	return organizer.OrganizeGames(args, opts)
 }

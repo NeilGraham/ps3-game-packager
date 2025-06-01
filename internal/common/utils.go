@@ -598,3 +598,88 @@ This usually indicates:
 
 	return nil
 }
+
+// MoveDir moves the contents of one directory to another, then removes the source
+func MoveDir(src, dest string) error {
+	// First copy everything
+	if err := CopyDir(src, dest); err != nil {
+		return fmt.Errorf("copying directory: %w", err)
+	}
+
+	// Then remove the source directory
+	if err := os.RemoveAll(src); err != nil {
+		return fmt.Errorf("removing source directory: %w", err)
+	}
+
+	return nil
+}
+
+// MoveDirWithCleanup moves the contents of one directory to another and handles cleanup
+func MoveDirWithCleanup(src, dest string, force bool, verbose bool) error {
+	// First copy everything
+	if err := CopyDir(src, dest); err != nil {
+		return fmt.Errorf("copying directory: %w", err)
+	}
+
+	// Check if source directory is empty or contains only empty directories
+	isEmpty, err := isDirEffectivelyEmpty(src)
+	if err != nil {
+		return fmt.Errorf("checking if source directory is empty: %w", err)
+	}
+
+	if isEmpty {
+		// Safe to remove - directory is empty or contains only empty subdirectories
+		if verbose {
+			fmt.Printf("Removing empty source directory: %s\n", src)
+		}
+		if err := os.RemoveAll(src); err != nil {
+			return fmt.Errorf("removing empty source directory: %w", err)
+		}
+	} else {
+		// Directory contains files - check if force is enabled
+		if force {
+			if verbose {
+				fmt.Printf("⚠️  Forcefully removing source directory with remaining files: %s\n", src)
+			}
+			if err := os.RemoveAll(src); err != nil {
+				return fmt.Errorf("forcefully removing source directory: %w", err)
+			}
+		} else {
+			fmt.Printf("⚠️  WARNING: Source directory contains remaining files and was not deleted: %s\n", src)
+			fmt.Printf("    Use --force to delete the source directory even with remaining files\n")
+		}
+	}
+
+	return nil
+}
+
+// isDirEffectivelyEmpty checks if a directory is empty or contains only empty subdirectories
+func isDirEffectivelyEmpty(dirPath string) (bool, error) {
+	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the root directory itself
+		if path == dirPath {
+			return nil
+		}
+
+		// If we find any file, the directory is not empty
+		if !info.IsDir() {
+			return fmt.Errorf("found file: %s", path)
+		}
+
+		// If we find a non-empty directory, the parent is not empty
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return err
+		}
+
+		if len(entries) > 0 {
+			return fmt.Errorf("found non-empty directory: %s", path)
+		}
+
+		return nil
+	}) == nil, nil
+}
