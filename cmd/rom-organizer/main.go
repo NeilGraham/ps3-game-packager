@@ -38,7 +38,7 @@ This toolkit provides utilities for organizing and optimizing ROM game files fro
 }
 
 var metadataCmd = &cobra.Command{
-	Use:   "metadata <file>",
+	Use:   "metadata <path> [path...]",
 	Short: "Parse metadata from ROM files",
 	Long: `Parse metadata from ROM files and extract game information.
 
@@ -49,10 +49,10 @@ More ROM formats will be supported in future versions.
 
 Examples:
   rom-organizer metadata PARAM.SFO
-  rom-organizer metadata --verbose PARAM.SFO
-  rom-organizer metadata PARAM.SFO --json
-  rom-organizer metadata --json --verbose PARAM.SFO`,
-	Args: cobra.ExactArgs(1),
+  rom-organizer metadata /path/to/game1 /path/to/game2 /path/to/game3
+  rom-organizer metadata --verbose /path/to/games/*
+  rom-organizer metadata --json --verbose /path/to/game_folder`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: metadataHandler,
 }
 
@@ -72,11 +72,16 @@ into a standardized directory structure with compressed game files:
 
 The game information (title and ID) is extracted from console-specific metadata files.
 
+By default, files are copied to preserve the original directory. Use --move to 
+move files instead (faster, saves disk space, but removes the original).
+The --move flag only works with unorganized directories for safety.
+
 Examples:
   rom-organizer compress /path/to/game_folder
   rom-organizer c /path/to/game1 /path/to/game2 /path/to/game3
   rom-organizer compress --output /target/dir /path/to/game.zip
-  rom-organizer c --force /path/to/game_folder1 /path/to/game_folder2`,
+  rom-organizer c --move /path/to/game_folder1 /path/to/game_folder2
+  rom-organizer compress --force /path/to/game_folder`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: compressHandler,
 }
@@ -97,11 +102,16 @@ into a standardized directory structure with decompressed game files:
 
 The game information (title and ID) is extracted from console-specific metadata files.
 
+By default, files are copied to preserve the original directory. Use --move to 
+move files instead (faster, saves disk space, but removes the original).
+The --move flag only works with unorganized directories for safety.
+
 Examples:
   rom-organizer decompress /path/to/game_folder
   rom-organizer d /path/to/game1 /path/to/game2 /path/to/game3
   rom-organizer decompress --output /target/dir /path/to/game.zip
-  rom-organizer d --force /path/to/game_folder1 /path/to/game_folder2`,
+  rom-organizer d --move /path/to/game_folder1 /path/to/game_folder2
+  rom-organizer decompress --force /path/to/game_folder`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: decompressHandler,
 }
@@ -153,11 +163,13 @@ func init() {
 	compressCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for compressed game")
 	compressCmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing output directory")
 	compressCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+	compressCmd.Flags().BoolVarP(&moveSource, "move", "m", false, "Move files instead of copying (deletes source directory - only works with unorganized directories)")
 
 	// Add flags to decompress command
 	decompressCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for decompressed game")
 	decompressCmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing output directory")
 	decompressCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+	decompressCmd.Flags().BoolVarP(&moveSource, "move", "m", false, "Move files instead of copying (deletes source directory - only works with unorganized directories)")
 
 	// Add flags to organize command
 	organizeCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for organized game")
@@ -168,18 +180,20 @@ func init() {
 
 func compressHandler(cmd *cobra.Command, args []string) error {
 	opts := packager.PackageOptions{
-		OutputDir: outputDir,
-		Force:     force,
-		Verbose:   verbose,
+		OutputDir:  outputDir,
+		Force:      force,
+		Verbose:    verbose,
+		MoveSource: moveSource,
 	}
 	return packager.PackageGames(args, opts)
 }
 
 func decompressHandler(cmd *cobra.Command, args []string) error {
 	opts := packager.PackageOptions{
-		OutputDir: outputDir,
-		Force:     force,
-		Verbose:   verbose,
+		OutputDir:  outputDir,
+		Force:      force,
+		Verbose:    verbose,
+		MoveSource: moveSource,
 	}
 	return packager.UnpackageGames(args, opts)
 }
@@ -195,8 +209,30 @@ func organizeHandler(cmd *cobra.Command, args []string) error {
 }
 
 func metadataHandler(cmd *cobra.Command, args []string) error {
-	path := args[0]
+	// If multiple paths, process each one
+	if len(args) > 1 {
+		for i, path := range args {
+			if i > 0 {
+				fmt.Println() // Add spacing between multiple outputs
+			}
+			if !jsonOutput {
+				fmt.Printf("=== Metadata for: %s ===\n", path)
+			}
+			if err := processMetadataForPath(path); err != nil {
+				if !jsonOutput {
+					fmt.Fprintf(os.Stderr, "Error processing %s: %v\n", path, err)
+				}
+				continue
+			}
+		}
+		return nil
+	}
 
+	// Single path processing
+	return processMetadataForPath(args[0])
+}
+
+func processMetadataForPath(path string) error {
 	// First, auto-detect the console type
 	detection, err := detect.DetectConsole(path)
 	if err != nil {

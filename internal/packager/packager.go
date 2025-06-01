@@ -12,9 +12,10 @@ import (
 
 // PackageOptions holds options for packaging operations
 type PackageOptions struct {
-	OutputDir string
-	Force     bool
-	Verbose   bool
+	OutputDir  string
+	Force      bool
+	Verbose    bool
+	MoveSource bool
 }
 
 // PackageGame packages a game into compressed format (game.7z)
@@ -87,6 +88,13 @@ func PackageGame(sourcePath string, opts PackageOptions) error {
 		return fmt.Errorf("creating game.7z archive: %w", err)
 	}
 
+	// Handle source cleanup if move was requested
+	if opts.MoveSource {
+		if err := cleanupSourceAfterPackaging(sourcePath, detection.GamePath, opts); err != nil {
+			return fmt.Errorf("cleaning up source directory: %w", err)
+		}
+	}
+
 	fmt.Printf("Successfully packaged %s game:\n", gameInfo.Console)
 	fmt.Printf("  Title: %s\n", gameInfo.Title)
 	fmt.Printf("  Game ID: %s\n", gameInfo.GameID)
@@ -99,6 +107,10 @@ func PackageGame(sourcePath string, opts PackageOptions) error {
 
 // handleOrganizedDirectoryForPackaging handles packaging of organized directories
 func handleOrganizedDirectoryForPackaging(sourcePath string, organizedInfo *common.OrganizedDirInfo, opts PackageOptions) error {
+	if opts.MoveSource {
+		fmt.Printf("⚠️  WARNING: --move flag ignored for already organized directories (safety measure)\n")
+	}
+
 	// If it already has game.7z (compressed), check if we need to do anything
 	if organizedInfo.HasCompressed && !organizedInfo.HasDecompressed {
 		if opts.Verbose {
@@ -221,6 +233,13 @@ func UnpackageGame(sourcePath string, opts PackageOptions) error {
 		return fmt.Errorf("copying game files: %w", err)
 	}
 
+	// Handle source cleanup if move was requested
+	if opts.MoveSource {
+		if err := cleanupSourceAfterPackaging(sourcePath, detection.GamePath, opts); err != nil {
+			return fmt.Errorf("cleaning up source directory: %w", err)
+		}
+	}
+
 	fmt.Printf("Successfully unpackaged %s game:\n", gameInfo.Console)
 	fmt.Printf("  Title: %s\n", gameInfo.Title)
 	fmt.Printf("  Game ID: %s\n", gameInfo.GameID)
@@ -233,6 +252,10 @@ func UnpackageGame(sourcePath string, opts PackageOptions) error {
 
 // handleOrganizedDirectoryForUnpackaging handles unpackaging of organized directories
 func handleOrganizedDirectoryForUnpackaging(sourcePath string, organizedInfo *common.OrganizedDirInfo, opts PackageOptions) error {
+	if opts.MoveSource {
+		fmt.Printf("⚠️  WARNING: --move flag ignored for already organized directories (safety measure)\n")
+	}
+
 	// If it already has game/ folder (decompressed), check if we need to do anything
 	if organizedInfo.HasDecompressed && !organizedInfo.HasCompressed {
 		if opts.Verbose {
@@ -360,6 +383,78 @@ func UnpackageGames(sourcePaths []string, opts PackageOptions) error {
 			fmt.Printf("  - %v\n", err)
 		}
 		return fmt.Errorf("failed to process %d out of %d games", len(errors), totalCount)
+	}
+
+	return nil
+}
+
+// cleanupSourceAfterPackaging handles cleanup of the source directory after packaging game files
+func cleanupSourceAfterPackaging(originalSourcePath, gameSourcePath string, opts PackageOptions) error {
+	if opts.MoveSource {
+		// Add warning about move flag for organized directories
+		organizedInfo, err := common.DetectOrganizedDirectory(originalSourcePath, false)
+		if err == nil && organizedInfo.IsOrganized {
+			fmt.Printf("⚠️  WARNING: --move flag ignored for already organized directories (safety measure)\n")
+			return nil
+		}
+
+		if opts.Verbose {
+			fmt.Printf("Move flag enabled - cleaning up source directory\n")
+		}
+
+		// If the user specified the exact game directory, remove it
+		if originalSourcePath == gameSourcePath {
+			if opts.Verbose {
+				fmt.Printf("Removing source game directory: %s\n", originalSourcePath)
+			}
+			if err := os.RemoveAll(originalSourcePath); err != nil {
+				return fmt.Errorf("removing source directory: %w", err)
+			}
+			if opts.Verbose {
+				fmt.Printf("Successfully removed source directory\n")
+			}
+			return nil
+		}
+
+		// User specified a parent directory, check if it's now empty or should be cleaned up
+		if opts.Verbose {
+			fmt.Printf("Checking if source directory should be cleaned up: %s\n", originalSourcePath)
+		}
+
+		// Check if the directory is effectively empty
+		isEmpty, err := common.IsDirEffectivelyEmpty(originalSourcePath)
+		if err != nil {
+			return fmt.Errorf("checking if source directory is empty: %w", err)
+		}
+
+		if isEmpty {
+			// Safe to remove - directory contains no significant files
+			if opts.Verbose {
+				fmt.Printf("Removing empty source directory: %s\n", originalSourcePath)
+			}
+			if err := os.RemoveAll(originalSourcePath); err != nil {
+				return fmt.Errorf("removing empty source directory: %w", err)
+			}
+			if opts.Verbose {
+				fmt.Printf("Successfully removed empty source directory\n")
+			}
+		} else {
+			// Directory contains files - check if force is enabled
+			if opts.Force {
+				if opts.Verbose {
+					fmt.Printf("⚠️  Forcefully removing source directory with remaining files: %s\n", originalSourcePath)
+				}
+				if err := os.RemoveAll(originalSourcePath); err != nil {
+					return fmt.Errorf("forcefully removing source directory: %w", err)
+				}
+				if opts.Verbose {
+					fmt.Printf("Successfully removed source directory with force\n")
+				}
+			} else {
+				fmt.Printf("⚠️  WARNING: Source directory contains remaining files and was not deleted: %s\n", originalSourcePath)
+				fmt.Printf("    Use --force to delete the source directory even with remaining files\n")
+			}
+		}
 	}
 
 	return nil

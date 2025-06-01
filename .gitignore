@@ -49,3 +49,29 @@ rom-organizer.exe
 **/game
 **/game.7z
 **/*.7z
+
+# Test files and outputs
+test-games/
+tests/test-games/
+tests/test-organized/
+tests/test-compressed/
+tests/test-decompressed/
+tests/temp-test-games/
+tests/bench-games-*/
+organized-test-games/
+compressed-test-games/
+decompressed-test-games/
+*-test-games/
+test-organized/
+test-compressed/
+test-decompressed/
+temp-test-games/
+bench-games-*/
+
+# Go build artifacts
+rom-organizer.exe
+rom-organizer-dev
+rom-organizer-dev.exe
+rom-organizer-bench
+rom-organizer-bench.exe
+*.exe
