@@ -246,3 +246,69 @@ func handleOrganizedDirectoryForUnpackaging(sourcePath string, organizedInfo *co
 
 	return fmt.Errorf("organized directory has unexpected format")
 }
+
+// PackageGames packages multiple PS3 games into compressed format (game.7z)
+func PackageGames(sourcePaths []string, opts PackageOptions) error {
+	var errors []error
+	successCount := 0
+	totalCount := len(sourcePaths)
+
+	for i, sourcePath := range sourcePaths {
+		if opts.Verbose {
+			fmt.Printf("\n=== Processing %d/%d: %s ===\n", i+1, totalCount, sourcePath)
+		}
+
+		if err := PackageGame(sourcePath, opts); err != nil {
+			fmt.Printf("Error processing %s: %v\n", sourcePath, err)
+			errors = append(errors, fmt.Errorf("%s: %w", sourcePath, err))
+		} else {
+			successCount++
+		}
+	}
+
+	// Print summary
+	fmt.Printf("\n=== Summary ===\n")
+	fmt.Printf("Successfully processed: %d/%d games\n", successCount, totalCount)
+	if len(errors) > 0 {
+		fmt.Printf("Failed: %d games\n", len(errors))
+		for _, err := range errors {
+			fmt.Printf("  - %v\n", err)
+		}
+		return fmt.Errorf("failed to process %d out of %d games", len(errors), totalCount)
+	}
+
+	return nil
+}
+
+// UnpackageGames unpacks multiple PS3 games into decompressed format (game/ folder)
+func UnpackageGames(sourcePaths []string, opts PackageOptions) error {
+	var errors []error
+	successCount := 0
+	totalCount := len(sourcePaths)
+
+	for i, sourcePath := range sourcePaths {
+		if opts.Verbose {
+			fmt.Printf("\n=== Processing %d/%d: %s ===\n", i+1, totalCount, sourcePath)
+		}
+
+		if err := UnpackageGame(sourcePath, opts); err != nil {
+			fmt.Printf("Error processing %s: %v\n", sourcePath, err)
+			errors = append(errors, fmt.Errorf("%s: %w", sourcePath, err))
+		} else {
+			successCount++
+		}
+	}
+
+	// Print summary
+	fmt.Printf("\n=== Summary ===\n")
+	fmt.Printf("Successfully processed: %d/%d games\n", successCount, totalCount)
+	if len(errors) > 0 {
+		fmt.Printf("Failed: %d games\n", len(errors))
+		for _, err := range errors {
+			fmt.Printf("  - %v\n", err)
+		}
+		return fmt.Errorf("failed to process %d out of %d games", len(errors), totalCount)
+	}
+
+	return nil
+}

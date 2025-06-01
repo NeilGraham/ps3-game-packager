@@ -52,11 +52,11 @@ Examples:
 }
 
 var packageCmd = &cobra.Command{
-	Use:   "package <source>",
-	Short: "Package a PS3 game into compressed format",
-	Long: `Package a PS3 game folder or archive into compressed format.
+	Use:   "package <source> [source...]",
+	Short: "Package PS3 games into compressed format",
+	Long: `Package PS3 game folders or archives into compressed format.
 
-This command takes a decrypted PS3 ISO game folder or archive file and packages it
+This command takes one or more decrypted PS3 ISO game folders or archive files and packages them
 into a standardized directory structure with compressed game files:
 
 {Game Name} [{Game ID}]/
@@ -68,18 +68,19 @@ The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
 
 Examples:
   ps3-game-packager package /path/to/game_folder
+  ps3-game-packager package /path/to/game1 /path/to/game2 /path/to/game3
   ps3-game-packager package --output /target/dir /path/to/game.zip
-  ps3-game-packager package --force /path/to/game_folder`,
-	Args: cobra.ExactArgs(1),
+  ps3-game-packager package --force /path/to/game_folder1 /path/to/game_folder2`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: packageHandler,
 }
 
 var unpackageCmd = &cobra.Command{
-	Use:   "unpackage <source>",
-	Short: "Unpackage a PS3 game into decompressed format",
-	Long: `Unpackage a PS3 game folder or archive into decompressed format.
+	Use:   "unpackage <source> [source...]",
+	Short: "Unpackage PS3 games into decompressed format",
+	Long: `Unpackage PS3 game folders or archives into decompressed format.
 
-This command takes a decrypted PS3 ISO game folder or archive file and packages it
+This command takes one or more decrypted PS3 ISO game folders or archive files and packages them
 into a standardized directory structure with decompressed game files:
 
 {Game Name} [{Game ID}]/
@@ -91,19 +92,20 @@ The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
 
 Examples:
   ps3-game-packager unpackage /path/to/game_folder
+  ps3-game-packager unpackage /path/to/game1 /path/to/game2 /path/to/game3
   ps3-game-packager unpackage --output /target/dir /path/to/game.zip
-  ps3-game-packager unpackage --force /path/to/game_folder`,
-	Args: cobra.ExactArgs(1),
+  ps3-game-packager unpackage --force /path/to/game_folder1 /path/to/game_folder2`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: unpackageHandler,
 }
 
 var organizeCmd = &cobra.Command{
-	Use:   "organize <source>",
-	Short: "Organize a PS3 game while keeping its existing format",
-	Long: `Organize a PS3 game folder into the standard structure while keeping its existing format.
+	Use:   "organize <source> [source...]",
+	Short: "Organize PS3 games while keeping their existing format",
+	Long: `Organize PS3 game folders into the standard structure while keeping their existing format.
 
-This command takes a PS3 game folder (or already organized game directory) and 
-organizes it into the standardized directory structure while preserving the 
+This command takes one or more PS3 game folders (or already organized game directories) and 
+organizes them into the standardized directory structure while preserving the 
 original format (compressed or decompressed):
 
 {Game Name} [{Game ID}]/
@@ -116,9 +118,10 @@ without changing their compression state.
 
 Examples:
   ps3-game-packager organize /path/to/game_folder
+  ps3-game-packager organize /path/to/game1 /path/to/game2 /path/to/game3
   ps3-game-packager organize --output /target/dir /path/to/game_folder
-  ps3-game-packager organize --force /path/to/existing_organized_game`,
-	Args: cobra.ExactArgs(1),
+  ps3-game-packager organize --force /path/to/existing_organized_game1 /path/to/game2`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: organizeHandler,
 }
 
@@ -155,7 +158,7 @@ func packageHandler(cmd *cobra.Command, args []string) error {
 		Force:     force,
 		Verbose:   verbose,
 	}
-	return packager.PackageGame(args[0], opts)
+	return packager.PackageGames(args, opts)
 }
 
 func unpackageHandler(cmd *cobra.Command, args []string) error {
@@ -164,7 +167,7 @@ func unpackageHandler(cmd *cobra.Command, args []string) error {
 		Force:     force,
 		Verbose:   verbose,
 	}
-	return packager.UnpackageGame(args[0], opts)
+	return packager.UnpackageGames(args, opts)
 }
 
 func organizeHandler(cmd *cobra.Command, args []string) error {
@@ -173,7 +176,7 @@ func organizeHandler(cmd *cobra.Command, args []string) error {
 		Force:     force,
 		Verbose:   verbose,
 	}
-	return organizer.OrganizeGame(args[0], opts)
+	return organizer.OrganizeGames(args, opts)
 }
 
 func parseParamSFOHandler(cmd *cobra.Command, args []string) error {

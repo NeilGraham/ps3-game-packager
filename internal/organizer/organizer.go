@@ -104,3 +104,36 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 
 	return nil
 }
+
+// OrganizeGames organizes multiple PS3 games while keeping them in their existing format
+func OrganizeGames(sourcePaths []string, opts OrganizeOptions) error {
+	var errors []error
+	successCount := 0
+	totalCount := len(sourcePaths)
+
+	for i, sourcePath := range sourcePaths {
+		if opts.Verbose {
+			fmt.Printf("\n=== Processing %d/%d: %s ===\n", i+1, totalCount, sourcePath)
+		}
+
+		if err := OrganizeGame(sourcePath, opts); err != nil {
+			fmt.Printf("Error processing %s: %v\n", sourcePath, err)
+			errors = append(errors, fmt.Errorf("%s: %w", sourcePath, err))
+		} else {
+			successCount++
+		}
+	}
+
+	// Print summary
+	fmt.Printf("\n=== Summary ===\n")
+	fmt.Printf("Successfully processed: %d/%d games\n", successCount, totalCount)
+	if len(errors) > 0 {
+		fmt.Printf("Failed: %d games\n", len(errors))
+		for _, err := range errors {
+			fmt.Printf("  - %v\n", err)
+		}
+		return fmt.Errorf("failed to process %d out of %d games", len(errors), totalCount)
+	}
+
+	return nil
+}
