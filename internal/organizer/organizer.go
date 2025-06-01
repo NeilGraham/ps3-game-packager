@@ -118,8 +118,65 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 				fmt.Printf("Moving game files to game/ folder (keeping decompressed format)...\n")
 				fmt.Printf("⚠️  WARNING: Original directory will be deleted after move\n")
 			}
-			if err := common.MoveDirWithCleanup(gameInfo.Source, gameDir, opts.Force, opts.Verbose); err != nil {
+
+			// Move the game files first
+			if err := common.CopyDir(gameInfo.Source, gameDir); err != nil {
 				return fmt.Errorf("moving game files: %w", err)
+			}
+
+			// Handle cleanup based on whether user specified the exact game directory or a parent
+			if sourcePath == gameInfo.Source {
+				// User specified the exact game directory - use standard cleanup
+				if err := common.MoveDirWithCleanup(gameInfo.Source, gameDir, opts.Force, opts.Verbose); err != nil {
+					return fmt.Errorf("moving game files: %w", err)
+				}
+			} else {
+				// User specified a parent directory - clean up the user-specified path
+				// First remove the game source directory since we copied its contents
+				if err := os.RemoveAll(gameInfo.Source); err != nil {
+					return fmt.Errorf("removing game source directory: %w", err)
+				}
+
+				// Then check if the user-specified directory is effectively empty
+				isEmpty, err := common.IsDirEffectivelyEmpty(sourcePath)
+				if err != nil {
+					return fmt.Errorf("checking if source directory is empty: %w", err)
+				}
+
+				if isEmpty {
+					// Safe to remove - directory contains no files
+					if opts.Verbose {
+						fmt.Printf("Removing empty source directory: %s\n", sourcePath)
+					}
+					if err := os.RemoveAll(sourcePath); err != nil {
+						return fmt.Errorf("removing empty source directory: %w", err)
+					}
+				} else {
+					// Directory contains files - check if force is enabled
+					if opts.Force {
+						if opts.Verbose {
+							fmt.Printf("⚠️  Forcefully removing source directory with remaining files: %s\n", sourcePath)
+						}
+						if err := os.RemoveAll(sourcePath); err != nil {
+							return fmt.Errorf("forcefully removing source directory: %w", err)
+						}
+					} else {
+						fmt.Printf("⚠️  WARNING: Source directory contains remaining files and was not deleted: %s\n", sourcePath)
+						fmt.Printf("    Use --force to delete the source directory even with remaining files\n")
+					}
+				}
+			}
+
+			// If both --move and --force are specified, delete the entire source directory
+			if opts.Force && sourcePath != gameInfo.Source {
+				if opts.Verbose {
+					fmt.Printf("⚠️  Deleting entire source directory (--force --move): %s\n", sourcePath)
+				}
+				if err := os.RemoveAll(sourcePath); err != nil {
+					fmt.Printf("⚠️  WARNING: Could not delete entire source directory %s: %v\n", sourcePath, err)
+				} else if opts.Verbose {
+					fmt.Printf("Successfully deleted entire source directory: %s\n", sourcePath)
+				}
 			}
 		} else {
 			if opts.Verbose {

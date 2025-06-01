@@ -622,7 +622,7 @@ func MoveDirWithCleanup(src, dest string, force bool, verbose bool) error {
 	}
 
 	// Check if source directory is empty or contains only empty directories
-	isEmpty, err := isDirEffectivelyEmpty(src)
+	isEmpty, err := IsDirEffectivelyEmpty(src)
 	if err != nil {
 		return fmt.Errorf("checking if source directory is empty: %w", err)
 	}
@@ -653,9 +653,11 @@ func MoveDirWithCleanup(src, dest string, force bool, verbose bool) error {
 	return nil
 }
 
-// isDirEffectivelyEmpty checks if a directory is empty or contains only empty subdirectories
-func isDirEffectivelyEmpty(dirPath string) (bool, error) {
-	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+// IsDirEffectivelyEmpty checks if a directory contains any files (ignores empty directories)
+func IsDirEffectivelyEmpty(dirPath string) (bool, error) {
+	var hasFiles bool
+
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -667,19 +669,17 @@ func isDirEffectivelyEmpty(dirPath string) (bool, error) {
 
 		// If we find any file, the directory is not empty
 		if !info.IsDir() {
-			return fmt.Errorf("found file: %s", path)
-		}
-
-		// If we find a non-empty directory, the parent is not empty
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return err
-		}
-
-		if len(entries) > 0 {
-			return fmt.Errorf("found non-empty directory: %s", path)
+			hasFiles = true
+			return filepath.SkipDir // Stop walking once we find a file
 		}
 
 		return nil
-	}) == nil, nil
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	// Directory is effectively empty if no files were found
+	return !hasFiles, nil
 }

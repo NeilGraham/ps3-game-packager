@@ -52,12 +52,13 @@ Examples:
 	RunE: parseParamSFOHandler,
 }
 
-var packageCmd = &cobra.Command{
-	Use:   "package <source> [source...]",
-	Short: "Package PS3 games into compressed format",
-	Long: `Package PS3 game folders or archives into compressed format.
+var compressCmd = &cobra.Command{
+	Use:     "compress <source> [source...]",
+	Aliases: []string{"c"},
+	Short:   "Compress PS3 games into 7z format",
+	Long: `Compress PS3 game folders or archives into 7z format.
 
-This command takes one or more decrypted PS3 ISO game folders or archive files and packages them
+This command takes one or more decrypted PS3 ISO game folders or archive files and organizes them
 into a standardized directory structure with compressed game files:
 
 {Game Name} [{Game ID}]/
@@ -68,20 +69,21 @@ into a standardized directory structure with compressed game files:
 The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
 
 Examples:
-  ps3-game-packager package /path/to/game_folder
-  ps3-game-packager package /path/to/game1 /path/to/game2 /path/to/game3
-  ps3-game-packager package --output /target/dir /path/to/game.zip
-  ps3-game-packager package --force /path/to/game_folder1 /path/to/game_folder2`,
+  ps3-game-packager compress /path/to/game_folder
+  ps3-game-packager c /path/to/game1 /path/to/game2 /path/to/game3
+  ps3-game-packager compress --output /target/dir /path/to/game.zip
+  ps3-game-packager c --force /path/to/game_folder1 /path/to/game_folder2`,
 	Args: cobra.MinimumNArgs(1),
-	RunE: packageHandler,
+	RunE: compressHandler,
 }
 
-var unpackageCmd = &cobra.Command{
-	Use:   "unpackage <source> [source...]",
-	Short: "Unpackage PS3 games into decompressed format",
-	Long: `Unpackage PS3 game folders or archives into decompressed format.
+var decompressCmd = &cobra.Command{
+	Use:     "decompress <source> [source...]",
+	Aliases: []string{"d"},
+	Short:   "Decompress PS3 games into folder format",
+	Long: `Decompress PS3 game folders or archives into folder format.
 
-This command takes one or more decrypted PS3 ISO game folders or archive files and packages them
+This command takes one or more decrypted PS3 ISO game folders or archive files and organizes them
 into a standardized directory structure with decompressed game files:
 
 {Game Name} [{Game ID}]/
@@ -92,17 +94,18 @@ into a standardized directory structure with decompressed game files:
 The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
 
 Examples:
-  ps3-game-packager unpackage /path/to/game_folder
-  ps3-game-packager unpackage /path/to/game1 /path/to/game2 /path/to/game3
-  ps3-game-packager unpackage --output /target/dir /path/to/game.zip
-  ps3-game-packager unpackage --force /path/to/game_folder1 /path/to/game_folder2`,
+  ps3-game-packager decompress /path/to/game_folder
+  ps3-game-packager d /path/to/game1 /path/to/game2 /path/to/game3
+  ps3-game-packager decompress --output /target/dir /path/to/game.zip
+  ps3-game-packager d --force /path/to/game_folder1 /path/to/game_folder2`,
 	Args: cobra.MinimumNArgs(1),
-	RunE: unpackageHandler,
+	RunE: decompressHandler,
 }
 
 var organizeCmd = &cobra.Command{
-	Use:   "organize <source> [source...]",
-	Short: "Organize PS3 games while keeping their existing format",
+	Use:     "organize <source> [source...]",
+	Aliases: []string{"o"},
+	Short:   "Organize PS3 games while keeping their existing format",
 	Long: `Organize PS3 game folders into the standard structure while keeping their existing format.
 
 This command takes one or more PS3 game folders (or already organized game directories) and 
@@ -123,9 +126,9 @@ The --move flag only works with unorganized directories for safety.
 
 Examples:
   ps3-game-packager organize /path/to/game_folder
-  ps3-game-packager organize /path/to/game1 /path/to/game2 /path/to/game3
+  ps3-game-packager o /path/to/game1 /path/to/game2 /path/to/game3
   ps3-game-packager organize --output /target/dir /path/to/game_folder
-  ps3-game-packager organize --move /path/to/game_folder1 /path/to/game_folder2
+  ps3-game-packager o --move /path/to/game_folder1 /path/to/game_folder2
   ps3-game-packager organize --force /path/to/existing_organized_game1 /path/to/game2`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: organizeHandler,
@@ -134,23 +137,23 @@ Examples:
 func init() {
 	// Add subcommands to root
 	rootCmd.AddCommand(parseParamSFOCmd)
-	rootCmd.AddCommand(packageCmd)
-	rootCmd.AddCommand(unpackageCmd)
+	rootCmd.AddCommand(compressCmd)
+	rootCmd.AddCommand(decompressCmd)
 	rootCmd.AddCommand(organizeCmd)
 
 	// Add flags to parse-param-sfo command
 	parseParamSFOCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
 	parseParamSFOCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
 
-	// Add flags to package command
-	packageCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for packaged game")
-	packageCmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing output directory")
-	packageCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+	// Add flags to compress command
+	compressCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for compressed game")
+	compressCmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing output directory")
+	compressCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
 
-	// Add flags to unpackage command
-	unpackageCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for unpackaged game")
-	unpackageCmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing output directory")
-	unpackageCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+	// Add flags to decompress command
+	decompressCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for decompressed game")
+	decompressCmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing output directory")
+	decompressCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
 
 	// Add flags to organize command
 	organizeCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for organized game")
@@ -159,7 +162,7 @@ func init() {
 	organizeCmd.Flags().BoolVarP(&moveSource, "move", "m", false, "Move files instead of copying (deletes source directory - only works with unorganized directories)")
 }
 
-func packageHandler(cmd *cobra.Command, args []string) error {
+func compressHandler(cmd *cobra.Command, args []string) error {
 	opts := packager.PackageOptions{
 		OutputDir: outputDir,
 		Force:     force,
@@ -168,7 +171,7 @@ func packageHandler(cmd *cobra.Command, args []string) error {
 	return packager.PackageGames(args, opts)
 }
 
-func unpackageHandler(cmd *cobra.Command, args []string) error {
+func decompressHandler(cmd *cobra.Command, args []string) error {
 	opts := packager.PackageOptions{
 		OutputDir: outputDir,
 		Force:     force,
