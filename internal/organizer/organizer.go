@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/NeilGraham/ps3-game-packager/internal/common"
+	"github.com/NeilGraham/rom-organizer/internal/common"
 )
 
 // OrganizeOptions holds options for organizing operations

@@ -14,14 +14,14 @@ A collection of tools for working with PS3 game files, providing utilities for o
 1. Clone the repository
 2. Build the application:
    ```bash
-   go build ./cmd/ps3-game-packager
+   go build ./cmd/rom-organizer
    ```
 
 ## Project Structure
 
 ```
-ps3-game-packager/
-├── cmd/ps3-game-packager/          # Main application entry point
+rom-organizer/
+├── cmd/rom-organizer/          # Main application entry point
 │   └── main.go
 ├── internal/                       # Internal packages
 │   ├── common/                     # Shared utilities
@@ -44,7 +44,7 @@ ps3-game-packager/
 Packages PS3 games into **compressed format** with 7z archives:
 
 ```bash
-ps3-game-packager package <source> [flags]
+rom-organizer package <source> [flags]
 ```
 
 **Output Structure:**
@@ -57,9 +57,9 @@ ps3-game-packager package <source> [flags]
 
 **Examples:**
 ```bash
-ps3-game-packager package /path/to/game_folder
-ps3-game-packager package --output /target/dir /path/to/game.zip
-ps3-game-packager package --force /path/to/game_folder
+rom-organizer package /path/to/game_folder
+rom-organizer package --output /target/dir /path/to/game.zip
+rom-organizer package --force /path/to/game_folder
 ```
 
 ### Unpackage Command
@@ -67,7 +67,7 @@ ps3-game-packager package --force /path/to/game_folder
 Packages PS3 games into **decompressed format** with raw files:
 
 ```bash
-ps3-game-packager unpackage <source> [flags]
+rom-organizer unpackage <source> [flags]
 ```
 
 **Output Structure:**
@@ -80,9 +80,9 @@ ps3-game-packager unpackage <source> [flags]
 
 **Examples:**
 ```bash
-ps3-game-packager unpackage /path/to/game_folder
-ps3-game-packager unpackage --output /target/dir /path/to/game.zip
-ps3-game-packager unpackage --force /path/to/game_folder
+rom-organizer unpackage /path/to/game_folder
+rom-organizer unpackage --output /target/dir /path/to/game.zip
+rom-organizer unpackage --force /path/to/game_folder
 ```
 
 ### Organize Command
@@ -90,7 +90,7 @@ ps3-game-packager unpackage --force /path/to/game_folder
 Organizes PS3 games while **preserving existing format**:
 
 ```bash
-ps3-game-packager organize <source> [flags]
+rom-organizer organize <source> [flags]
 ```
 
 **Output Structure:**
@@ -108,9 +108,9 @@ This command is useful for:
 
 **Examples:**
 ```bash
-ps3-game-packager organize /path/to/game_folder
-ps3-game-packager organize --output /target/dir /path/to/game_folder
-ps3-game-packager organize --force /path/to/existing_organized_game
+rom-organizer organize /path/to/game_folder
+rom-organizer organize --output /target/dir /path/to/game_folder
+rom-organizer organize --force /path/to/existing_organized_game
 ```
 
 ### Parse PARAM.SFO Command
@@ -118,14 +118,14 @@ ps3-game-packager organize --force /path/to/existing_organized_game
 Extract metadata from PS3 PARAM.SFO files:
 
 ```bash
-ps3-game-packager parse-param-sfo <PARAM.SFO file> [flags]
+rom-organizer parse-param-sfo <PARAM.SFO file> [flags]
 ```
 
 **Examples:**
 ```bash
-ps3-game-packager parse-param-sfo PARAM.SFO
-ps3-game-packager parse-param-sfo --verbose PARAM.SFO
-ps3-game-packager parse-param-sfo --json PARAM.SFO
+rom-organizer parse-param-sfo PARAM.SFO
+rom-organizer parse-param-sfo --verbose PARAM.SFO
+rom-organizer parse-param-sfo --json PARAM.SFO
 ```
 
 ## Flags

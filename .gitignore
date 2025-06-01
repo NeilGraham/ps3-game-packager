@@ -35,11 +35,12 @@ go.work.sum
 # .idea/
 # .vscode/
 
-# PS3 Game Packager
-# _________________
+# ROM Organizer
+# _____________
 
 PARAM.SFO
-ps3-game-packager
+rom-organizer
+!cmd/rom-organizer/
 **/PS3_GAME
 **/PS3_DISC.SFB
 **/.pkg

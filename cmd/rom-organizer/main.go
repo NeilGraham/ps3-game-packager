@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/NeilGraham/ps3-game-packager/internal/organizer"
-	"github.com/NeilGraham/ps3-game-packager/internal/packager"
-	"github.com/NeilGraham/ps3-game-packager/internal/parsers"
+	"github.com/NeilGraham/rom-organizer/internal/organizer"
+	"github.com/NeilGraham/rom-organizer/internal/packager"
+	"github.com/NeilGraham/rom-organizer/internal/parsers"
 )
 
 var (
@@ -27,7 +27,7 @@ func main() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "ps3-game-packager",
+	Use:   "rom-organizer",
 	Short: "Tools for working with PS3 game files",
 	Long: `PS3 Game Packager - A collection of tools for working with PS3 game files.
 
@@ -44,10 +44,10 @@ PARAM.SFO files contain metadata about PS3 games including the title,
 title ID, version information, and other game attributes.
 
 Examples:
-  ps3-game-packager parse-param-sfo PARAM.SFO
-  ps3-game-packager parse-param-sfo --verbose PARAM.SFO
-  ps3-game-packager parse-param-sfo PARAM.SFO --json
-  ps3-game-packager parse-param-sfo --json --verbose PARAM.SFO`,
+  rom-organizer parse-param-sfo PARAM.SFO
+  rom-organizer parse-param-sfo --verbose PARAM.SFO
+  rom-organizer parse-param-sfo PARAM.SFO --json
+  rom-organizer parse-param-sfo --json --verbose PARAM.SFO`,
 	Args: cobra.ExactArgs(1),
 	RunE: parseParamSFOHandler,
 }
@@ -69,10 +69,10 @@ into a standardized directory structure with compressed game files:
 The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
 
 Examples:
-  ps3-game-packager compress /path/to/game_folder
-  ps3-game-packager c /path/to/game1 /path/to/game2 /path/to/game3
-  ps3-game-packager compress --output /target/dir /path/to/game.zip
-  ps3-game-packager c --force /path/to/game_folder1 /path/to/game_folder2`,
+  rom-organizer compress /path/to/game_folder
+  rom-organizer c /path/to/game1 /path/to/game2 /path/to/game3
+  rom-organizer compress --output /target/dir /path/to/game.zip
+  rom-organizer c --force /path/to/game_folder1 /path/to/game_folder2`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: compressHandler,
 }
@@ -94,10 +94,10 @@ into a standardized directory structure with decompressed game files:
 The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
 
 Examples:
-  ps3-game-packager decompress /path/to/game_folder
-  ps3-game-packager d /path/to/game1 /path/to/game2 /path/to/game3
-  ps3-game-packager decompress --output /target/dir /path/to/game.zip
-  ps3-game-packager d --force /path/to/game_folder1 /path/to/game_folder2`,
+  rom-organizer decompress /path/to/game_folder
+  rom-organizer d /path/to/game1 /path/to/game2 /path/to/game3
+  rom-organizer decompress --output /target/dir /path/to/game.zip
+  rom-organizer d --force /path/to/game_folder1 /path/to/game_folder2`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: decompressHandler,
 }
@@ -125,11 +125,11 @@ move files instead (faster, saves disk space, but removes the original).
 The --move flag only works with unorganized directories for safety.
 
 Examples:
-  ps3-game-packager organize /path/to/game_folder
-  ps3-game-packager o /path/to/game1 /path/to/game2 /path/to/game3
-  ps3-game-packager organize --output /target/dir /path/to/game_folder
-  ps3-game-packager o --move /path/to/game_folder1 /path/to/game_folder2
-  ps3-game-packager organize --force /path/to/existing_organized_game1 /path/to/game2`,
+  rom-organizer organize /path/to/game_folder
+  rom-organizer o /path/to/game1 /path/to/game2 /path/to/game3
+  rom-organizer organize --output /target/dir /path/to/game_folder
+  rom-organizer o --move /path/to/game_folder1 /path/to/game_folder2
+  rom-organizer organize --force /path/to/existing_organized_game1 /path/to/game2`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: organizeHandler,
 }
