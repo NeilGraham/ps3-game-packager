@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/NeilGraham/rom-organizer/internal/detect"
 	"github.com/NeilGraham/rom-organizer/internal/organizer"
 	"github.com/NeilGraham/rom-organizer/internal/packager"
 	"github.com/NeilGraham/rom-organizer/internal/parsers"
@@ -28,28 +29,30 @@ func main() {
 
 var rootCmd = &cobra.Command{
 	Use:   "rom-organizer",
-	Short: "Tools for working with PS3 game files",
-	Long: `PS3 Game Packager - A collection of tools for working with PS3 game files.
+	Short: "Tools for working with ROM game files",
+	Long: `ROM Organizer - A collection of tools for working with ROM game files.
 
-This toolkit provides utilities for organizing and optimizing PS3 game files.`,
+This toolkit provides utilities for organizing and optimizing ROM game files from various consoles.`,
 	Version: "1.0.0",
 }
 
-var parseParamSFOCmd = &cobra.Command{
-	Use:   "parse-param-sfo <PARAM.SFO file>",
-	Short: "Parse a PS3 PARAM.SFO file and extract game information",
-	Long: `Parse a PS3 PARAM.SFO file and extract game information.
+var metadataCmd = &cobra.Command{
+	Use:   "metadata <file>",
+	Short: "Parse metadata from ROM files",
+	Long: `Parse metadata from ROM files and extract game information.
 
-PARAM.SFO files contain metadata about PS3 games including the title, 
-title ID, version information, and other game attributes.
+This command can extract metadata from various ROM file formats including:
+- PS3 PARAM.SFO files (contains title, title ID, version, and other game attributes)
+
+More ROM formats will be supported in future versions.
 
 Examples:
-  rom-organizer parse-param-sfo PARAM.SFO
-  rom-organizer parse-param-sfo --verbose PARAM.SFO
-  rom-organizer parse-param-sfo PARAM.SFO --json
-  rom-organizer parse-param-sfo --json --verbose PARAM.SFO`,
+  rom-organizer metadata PARAM.SFO
+  rom-organizer metadata --verbose PARAM.SFO
+  rom-organizer metadata PARAM.SFO --json
+  rom-organizer metadata --json --verbose PARAM.SFO`,
 	Args: cobra.ExactArgs(1),
-	RunE: parseParamSFOHandler,
+	RunE: metadataHandler,
 }
 
 var compressCmd = &cobra.Command{
@@ -136,14 +139,14 @@ Examples:
 
 func init() {
 	// Add subcommands to root
-	rootCmd.AddCommand(parseParamSFOCmd)
+	rootCmd.AddCommand(metadataCmd)
 	rootCmd.AddCommand(compressCmd)
 	rootCmd.AddCommand(decompressCmd)
 	rootCmd.AddCommand(organizeCmd)
 
-	// Add flags to parse-param-sfo command
-	parseParamSFOCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
-	parseParamSFOCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
+	// Add flags to metadata command
+	metadataCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed information")
+	metadataCmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
 
 	// Add flags to compress command
 	compressCmd.Flags().StringVarP(&outputDir, "output", "o", ".", "Output directory for compressed game")
@@ -190,18 +193,74 @@ func organizeHandler(cmd *cobra.Command, args []string) error {
 	return organizer.OrganizeGames(args, opts)
 }
 
-func parseParamSFOHandler(cmd *cobra.Command, args []string) error {
-	filename := args[0]
+func metadataHandler(cmd *cobra.Command, args []string) error {
+	path := args[0]
 
-	// Read and parse the file
-	data, err := os.ReadFile(filename)
+	// First, auto-detect the console type
+	detection, err := detect.DetectConsole(path)
 	if err != nil {
-		return fmt.Errorf("reading file: %w", err)
+		return fmt.Errorf("error detecting console type: %w", err)
+	}
+
+	if verbose {
+		fmt.Printf("Console Detection Results:\n")
+		fmt.Printf("=========================\n")
+		fmt.Printf("Console Type:    %s\n", detection.ConsoleType.String())
+		fmt.Printf("Confidence:      %.2f\n", detection.Confidence)
+		fmt.Printf("Game Path:       %s\n", detection.GamePath)
+		fmt.Printf("Indicator:       %s\n", detection.IndicatorFound)
+		fmt.Printf("Search Depth:    %d\n", detection.SearchDepth)
+		if len(detection.AmbiguousFiles) > 0 {
+			fmt.Printf("Ambiguous Files: %d found\n", len(detection.AmbiguousFiles))
+			for _, file := range detection.AmbiguousFiles {
+				fmt.Printf("  - %s\n", file)
+			}
+		}
+		fmt.Println()
+	}
+
+	// Handle different console types
+	switch detection.ConsoleType {
+	case detect.PS3:
+		return handlePS3Metadata(path, detection)
+	case detect.Unknown:
+		if len(detection.AmbiguousFiles) > 0 {
+			fmt.Printf("Found %d ambiguous files that need further analysis:\n", len(detection.AmbiguousFiles))
+			for _, file := range detection.AmbiguousFiles {
+				fmt.Printf("  - %s\n", file)
+			}
+			return fmt.Errorf("ambiguous file types detected - specific console type analysis not yet implemented")
+		}
+		return fmt.Errorf("unable to determine console type for: %s", path)
+	default:
+		return fmt.Errorf("metadata extraction for %s is not yet implemented", detection.ConsoleType.String())
+	}
+}
+
+// handlePS3Metadata handles metadata extraction for PS3 games
+func handlePS3Metadata(originalPath string, detection *detect.DetectionResult) error {
+	// For PS3, we need to find the PARAM.SFO file
+	var paramSFOPath string
+
+	// If the detection found PS3_GAME directory, look for PARAM.SFO inside it
+	if detection.IndicatorFound == "PS3_GAME" {
+		paramSFOPath = fmt.Sprintf("%s/PS3_GAME/PARAM.SFO", detection.GamePath)
+	} else if detection.IndicatorFound == "PARAM.SFO" {
+		// If PARAM.SFO was found directly, use that path
+		paramSFOPath = fmt.Sprintf("%s/PARAM.SFO", detection.GamePath)
+	} else {
+		return fmt.Errorf("unable to locate PARAM.SFO file for PS3 game")
+	}
+
+	// Read and parse the PARAM.SFO file
+	data, err := os.ReadFile(paramSFOPath)
+	if err != nil {
+		return fmt.Errorf("reading PARAM.SFO file: %w", err)
 	}
 
 	paramSFO, err := parsers.ParseParamSFO(data)
 	if err != nil {
-		return fmt.Errorf("parsing PARAM.SFO: %w", err)
+		return fmt.Errorf("parsing PS3 PARAM.SFO: %w", err)
 	}
 
 	// Output based on format preference
@@ -216,8 +275,9 @@ func parseParamSFOHandler(cmd *cobra.Command, args []string) error {
 
 func outputText(paramSFO *parsers.ParamSFO, verbose bool) {
 	if verbose {
-		fmt.Printf("PARAM.SFO Parser\n")
-		fmt.Printf("================\n")
+		fmt.Printf("ROM Metadata Parser\n")
+		fmt.Printf("===================\n")
+		fmt.Printf("File Type:       PS3 PARAM.SFO\n")
 		fmt.Printf("Version:         %d.%d\n",
 			paramSFO.Header.Version&0xFF,
 			(paramSFO.Header.Version>>8)&0xFF)

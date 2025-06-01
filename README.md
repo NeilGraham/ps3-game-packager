@@ -1,13 +1,15 @@
-# PS3 Game Packager
+# ROM Organizer
 
-A collection of tools for working with PS3 game files, providing utilities for organizing and optimizing PS3 game collections.
+At the moment the repository is focused on PS3 games, but it will be extended to support other consoles in the future.
+
+A collection of tools for working with ROM game files, providing utilities for organizing and optimizing ROM game collections.
 
 ## Features
 
-- **Package**: Compress PS3 games into 7z archives with organized directory structure
-- **Unpackage**: Organize PS3 games into decompressed format with standardized structure  
 - **Organize**: Organize PS3 games while preserving their existing format (compressed/decompressed)
-- **Parse PARAM.SFO**: Extract metadata from PS3 game files
+- **Compress**: Compress PS3 games into 7z archives with organized directory structure
+- **Decompress**: Organize PS3 games into decompressed format with standardized structure  
+- **Metadata**: Extract metadata from ROM files (currently supports PS3 PARAM.SFO)
 
 ## Installation
 
@@ -30,8 +32,8 @@ rom-organizer/
 │   │   └── organizer.go           # Organize command implementation
 │   ├── packager/                   # Packaging logic
 │   │   └── packager.go            # Package/unpackage implementations
-│   └── parsers/                    # File parsers
-│       └── param_sfo.go           # PARAM.SFO parser
+│   └── parsers/                    # File parsers organized by console
+│       └── ps3.go                 # PS3 PARAM.SFO parser
 ├── go.mod
 ├── go.sum
 └── README.md
@@ -39,12 +41,12 @@ rom-organizer/
 
 ## Commands
 
-### Package Command
+### Compress Command
 
-Packages PS3 games into **compressed format** with 7z archives:
+Compresses PS3 games into **compressed format** with 7z archives:
 
 ```bash
-rom-organizer package <source> [flags]
+rom-organizer compress <source> [flags]
 ```
 
 **Output Structure:**
@@ -57,17 +59,17 @@ rom-organizer package <source> [flags]
 
 **Examples:**
 ```bash
-rom-organizer package /path/to/game_folder
-rom-organizer package --output /target/dir /path/to/game.zip
-rom-organizer package --force /path/to/game_folder
+rom-organizer compress /path/to/game_folder
+rom-organizer compress --output /target/dir /path/to/game.zip
+rom-organizer compress --force /path/to/game_folder
 ```
 
-### Unpackage Command
+### Decompress Command
 
-Packages PS3 games into **decompressed format** with raw files:
+Organizes PS3 games into **decompressed format** with raw files:
 
 ```bash
-rom-organizer unpackage <source> [flags]
+rom-organizer decompress <source> [flags]
 ```
 
 **Output Structure:**
@@ -80,9 +82,9 @@ rom-organizer unpackage <source> [flags]
 
 **Examples:**
 ```bash
-rom-organizer unpackage /path/to/game_folder
-rom-organizer unpackage --output /target/dir /path/to/game.zip
-rom-organizer unpackage --force /path/to/game_folder
+rom-organizer decompress /path/to/game_folder
+rom-organizer decompress --output /target/dir /path/to/game.zip
+rom-organizer decompress --force /path/to/game_folder
 ```
 
 ### Organize Command
@@ -113,19 +115,24 @@ rom-organizer organize --output /target/dir /path/to/game_folder
 rom-organizer organize --force /path/to/existing_organized_game
 ```
 
-### Parse PARAM.SFO Command
+### Metadata Command
 
-Extract metadata from PS3 PARAM.SFO files:
+Extract metadata from ROM files:
 
 ```bash
-rom-organizer parse-param-sfo <PARAM.SFO file> [flags]
+rom-organizer metadata <file> [flags]
 ```
+
+Currently supports:
+- **PS3 PARAM.SFO files**: Extract title, title ID, version, and other game attributes
+
+More ROM formats will be supported in future versions.
 
 **Examples:**
 ```bash
-rom-organizer parse-param-sfo PARAM.SFO
-rom-organizer parse-param-sfo --verbose PARAM.SFO
-rom-organizer parse-param-sfo --json PARAM.SFO
+rom-organizer metadata PARAM.SFO
+rom-organizer metadata --verbose PARAM.SFO
+rom-organizer metadata --json PARAM.SFO
 ```
 
 ## Flags
@@ -137,9 +144,13 @@ All packaging commands support these flags:
 - `-v, --verbose`: Show detailed information
 - `-h, --help`: Show help for the command
 
+The metadata command supports:
+- `-v, --verbose`: Show detailed file structure information
+- `-j, --json`: Output metadata in JSON format
+
 ## Requirements
 
-- **7-Zip**: Required for the `package` command to create 7z archives
+- **7-Zip**: Required for the `compress` command to create 7z archives
   - **Windows**: Download from [7-zip.org](https://www.7-zip.org/) or install via `choco install 7zip`
   - **macOS**: Install via `brew install p7zip`
   - **Linux**: Install via package manager (e.g., `sudo apt install p7zip-full`)
@@ -149,6 +160,7 @@ All packaging commands support these flags:
 - **PS3 Game Folders**: Decrypted PS3 ISO folder containing `PS3_GAME/PARAM.SFO`
 - **ZIP Archives**: Archive files containing PS3 game folders
 - **Organized Directories**: Already organized game directories (for organize command)
+- **PS3 PARAM.SFO files**: For metadata extraction
 
 ## Game Information Extraction
 
@@ -168,6 +180,7 @@ The application provides detailed error messages for common issues:
 - Missing 7z installation
 - File permission issues
 - Disk space problems
+- Unsupported file formats (for metadata command)
 
 ## Version
 
