@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/NeilGraham/rom-organizer/internal/common"
+	"github.com/NeilGraham/rom-organizer/internal/consoles"
 	"github.com/NeilGraham/rom-organizer/internal/detect"
-	"github.com/NeilGraham/rom-organizer/internal/parsers"
 )
 
 // OrganizeOptions holds options for organizing operations
@@ -38,22 +38,32 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 		fmt.Printf("Indicator: %s\n", detection.IndicatorFound)
 	}
 
+	// Get console registry and handler
+	registry := consoles.NewRegistry()
+
 	// Handle different console types
 	switch detection.ConsoleType {
-	case detect.PS3:
-		return organizePS3Game(sourcePath, detection, opts)
 	case detect.Unknown:
 		if len(detection.AmbiguousFiles) > 0 {
 			return fmt.Errorf("found ambiguous files but console-specific organization not yet implemented - detected %d ambiguous files", len(detection.AmbiguousFiles))
 		}
 		return fmt.Errorf("unable to determine console type for: %s", sourcePath)
 	default:
-		return fmt.Errorf("organization for %s is not yet implemented", detection.ConsoleType.String())
+		if !registry.IsSupported(detection.ConsoleType) {
+			return fmt.Errorf("organization for %s is not yet implemented", detection.ConsoleType.String())
+		}
+
+		handler, err := registry.GetHandler(detection.ConsoleType)
+		if err != nil {
+			return fmt.Errorf("getting console handler: %w", err)
+		}
+
+		return organizeGame(sourcePath, detection, handler, opts)
 	}
 }
 
-// organizePS3Game handles organization of PS3 games specifically
-func organizePS3Game(sourcePath string, detection *detect.DetectionResult, opts OrganizeOptions) error {
+// organizeGame handles organization of games for any console using the appropriate handler
+func organizeGame(sourcePath string, detection *detect.DetectionResult, handler common.ConsoleHandler, opts OrganizeOptions) error {
 	// Check if this is an existing organized game directory first
 	organizedInfo, err := common.DetectOrganizedDirectory(sourcePath, opts.Verbose)
 	if err != nil {
@@ -81,17 +91,18 @@ func organizePS3Game(sourcePath string, detection *detect.DetectionResult, opts 
 
 		fmt.Printf("Directory is already organized:\n")
 		fmt.Printf("  Title: %s\n", organizedInfo.GameInfo.Title)
-		fmt.Printf("  Title ID: %s\n", organizedInfo.GameInfo.TitleID)
+		fmt.Printf("  Game ID: %s\n", organizedInfo.GameInfo.GameID)
+		fmt.Printf("  Console: %s\n", organizedInfo.GameInfo.Console)
 		fmt.Printf("  Format: %s\n", format)
 		fmt.Printf("  Location: %s\n", sourcePath)
 
 		return nil
 	}
 
-	// Extract game information using the detected game path
-	gameInfo, err := extractPS3GameInfo(detection)
+	// Extract game information using the console handler
+	gameInfo, err := handler.ExtractGameInfo(detection.GamePath, opts.Verbose)
 	if err != nil {
-		return fmt.Errorf("extracting PS3 game info: %w", err)
+		return fmt.Errorf("extracting game info: %w", err)
 	}
 
 	// Generate target path
@@ -99,7 +110,8 @@ func organizePS3Game(sourcePath string, detection *detect.DetectionResult, opts 
 
 	if opts.Verbose {
 		fmt.Printf("Game Title: %s\n", gameInfo.Title)
-		fmt.Printf("Title ID: %s\n", gameInfo.TitleID)
+		fmt.Printf("Game ID: %s\n", gameInfo.GameID)
+		fmt.Printf("Console: %s\n", gameInfo.Console)
 		fmt.Printf("Target directory: %s\n", targetPath)
 	}
 
@@ -161,54 +173,14 @@ func organizePS3Game(sourcePath string, detection *detect.DetectionResult, opts 
 		}
 	}
 
-	fmt.Printf("Successfully organized PS3 game:\n")
+	fmt.Printf("Successfully organized %s game:\n", gameInfo.Console)
 	fmt.Printf("  Title: %s\n", gameInfo.Title)
-	fmt.Printf("  Title ID: %s\n", gameInfo.TitleID)
+	fmt.Printf("  Game ID: %s\n", gameInfo.GameID)
+	fmt.Printf("  Console: %s\n", gameInfo.Console)
 	fmt.Printf("  Format: Decompressed (game/ folder)\n")
 	fmt.Printf("  Output: %s\n", targetPath)
 
 	return nil
-}
-
-// extractPS3GameInfo extracts game information from a PS3 detection result
-func extractPS3GameInfo(detection *detect.DetectionResult) (*common.GameInfo, error) {
-	// Find the PARAM.SFO file based on the detection result
-	var paramSFOPath string
-
-	if detection.IndicatorFound == "PS3_GAME" {
-		paramSFOPath = filepath.Join(detection.GamePath, "PS3_GAME", "PARAM.SFO")
-	} else if detection.IndicatorFound == "PARAM.SFO" {
-		paramSFOPath = filepath.Join(detection.GamePath, "PARAM.SFO")
-	} else {
-		return nil, fmt.Errorf("unexpected PS3 indicator: %s", detection.IndicatorFound)
-	}
-
-	// Read and parse the PARAM.SFO file directly
-	paramSFOData, err := os.ReadFile(paramSFOPath)
-	if err != nil {
-		return nil, fmt.Errorf("reading PARAM.SFO: %w", err)
-	}
-
-	paramSFO, err := parsers.ParseParamSFO(paramSFOData)
-	if err != nil {
-		return nil, fmt.Errorf("parsing PARAM.SFO: %w", err)
-	}
-
-	title := paramSFO.GetTitle()
-	titleID := paramSFO.GetTitleID()
-
-	if title == "" {
-		return nil, fmt.Errorf("game title not found in PARAM.SFO")
-	}
-	if titleID == "" {
-		return nil, fmt.Errorf("title ID not found in PARAM.SFO")
-	}
-
-	return &common.GameInfo{
-		Title:   title,
-		TitleID: titleID,
-		Source:  detection.GamePath,
-	}, nil
 }
 
 // moveGameDirectory moves a game directory from source to destination

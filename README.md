@@ -1,14 +1,26 @@
 # ROM Organizer
 
-At the moment the repository is focused on PS3 games, but it will be extended to support other consoles in the future.
+> **Note**: This repository was originally focused on PlayStation 3 (PS3) games but has been expanded to support multiple console types. All existing PS3 functionality is preserved while providing a foundation for adding more console support.
 
-A collection of tools for working with ROM game files, providing utilities for organizing and optimizing ROM game collections.
+A collection of tools for working with ROM game files, providing utilities for organizing and optimizing ROM game collections from various consoles.
+
+**Currently Supported Consoles:**
+- PlayStation 3 (PS3)
+
+**Planned Support:**
+- PlayStation 2 (PS2)
+- PlayStation 1 (PSX)
+- Xbox
+- Xbox 360
+- Nintendo GameCube
+- Nintendo Wii
+- And more...
 
 ## Features
 
-- **Organize**: Organize PS3 games while preserving their existing format (compressed/decompressed)
-- **Compress**: Compress PS3 games into 7z archives with organized directory structure
-- **Decompress**: Organize PS3 games into decompressed format with standardized structure  
+- **Organize**: Organize games while preserving their existing format (compressed/decompressed)
+- **Compress**: Compress games into 7z archives with organized directory structure
+- **Decompress**: Organize games into decompressed format with standardized structure  
 - **Metadata**: Extract metadata from ROM files (currently supports PS3 PARAM.SFO)
 
 ## Installation
@@ -25,15 +37,22 @@ A collection of tools for working with ROM game files, providing utilities for o
 rom-organizer/
 ├── cmd/rom-organizer/          # Main application entry point
 │   └── main.go
-├── internal/                       # Internal packages
-│   ├── common/                     # Shared utilities
-│   │   └── utils.go               # File operations, game info extraction
-│   ├── organizer/                  # Organization logic
-│   │   └── organizer.go           # Organize command implementation
-│   ├── packager/                   # Packaging logic
-│   │   └── packager.go            # Package/unpackage implementations
-│   └── parsers/                    # File parsers organized by console
-│       └── ps3.go                 # PS3 PARAM.SFO parser
+├── internal/                   # Internal packages
+│   ├── common/                 # Shared utilities and interfaces
+│   │   └── utils.go           # File operations, game info structures
+│   ├── consoles/              # Console-specific handlers
+│   │   ├── registry.go        # Console handler registry
+│   │   └── ps3.go            # PlayStation 3 handler
+│   ├── detect/                # Console detection logic
+│   │   ├── detect.go         # Main detection algorithm
+│   │   ├── indicators.go     # Console-specific indicators
+│   │   └── types.go          # Detection types and results
+│   ├── organizer/             # Organization logic
+│   │   └── organizer.go      # Organize command implementation
+│   ├── packager/              # Packaging logic
+│   │   └── packager.go       # Package/unpackage implementations
+│   └── parsers/               # File parsers organized by console
+│       └── ps3.go            # PS3 PARAM.SFO parser
 ├── go.mod
 ├── go.sum
 └── README.md
@@ -43,7 +62,7 @@ rom-organizer/
 
 ### Compress Command
 
-Compresses PS3 games into **compressed format** with 7z archives:
+Compresses games into **compressed format** with 7z archives:
 
 ```bash
 rom-organizer compress <source> [flags]
@@ -66,7 +85,7 @@ rom-organizer compress --force /path/to/game_folder
 
 ### Decompress Command
 
-Organizes PS3 games into **decompressed format** with raw files:
+Organizes games into **decompressed format** with raw files:
 
 ```bash
 rom-organizer decompress <source> [flags]
@@ -89,7 +108,7 @@ rom-organizer decompress --force /path/to/game_folder
 
 ### Organize Command
 
-Organizes PS3 games while **preserving existing format**:
+Organizes games while **preserving existing format**:
 
 ```bash
 rom-organizer organize <source> [flags]
@@ -155,32 +174,58 @@ The metadata command supports:
   - **macOS**: Install via `brew install p7zip`
   - **Linux**: Install via package manager (e.g., `sudo apt install p7zip-full`)
 
-## Input Formats
+## Supported Input Formats
 
-- **PS3 Game Folders**: Decrypted PS3 ISO folder containing `PS3_GAME/PARAM.SFO`
+### PlayStation 3 (PS3)
+- **Game Folders**: Decrypted PS3 ISO folder containing `PS3_GAME/PARAM.SFO`
 - **ZIP Archives**: Archive files containing PS3 game folders
 - **Organized Directories**: Already organized game directories (for organize command)
-- **PS3 PARAM.SFO files**: For metadata extraction
+- **PARAM.SFO files**: For metadata extraction
+
+### Future Console Support
+The application is designed to easily support additional consoles. Each console will have:
+- Specific file structure detection
+- Metadata extraction capabilities
+- Standardized organization output
 
 ## Game Information Extraction
 
-The tools automatically extract game information from `PS3_GAME/PARAM.SFO` files:
-- Game Title
-- Title ID (e.g., BLUS30490)
-- App Version
-- Category
+The tools automatically extract game information from console-specific metadata files:
+
+### PlayStation 3
+- **Source**: `PS3_GAME/PARAM.SFO` files
+- **Extracted Data**: Game Title, Title ID (e.g., BLUS30490), App Version, Category
 
 This information is used to create standardized directory names in the format: `{Game Name} [{Game ID}]`
+
+## Console Detection
+
+The application uses an intelligent detection system to automatically identify console types:
+
+1. **File Structure Analysis**: Looks for console-specific directories and files
+2. **Metadata File Detection**: Identifies characteristic metadata files
+3. **Confidence Scoring**: Provides confidence levels for detections
+4. **Ambiguous File Handling**: Manages files that could belong to multiple consoles
 
 ## Error Handling
 
 The application provides detailed error messages for common issues:
-- Missing PARAM.SFO files
+- Missing metadata files
 - Invalid source paths
 - Missing 7z installation
 - File permission issues
 - Disk space problems
-- Unsupported file formats (for metadata command)
+- Unsupported file formats
+- Unsupported console types
+
+## Adding New Console Support
+
+The codebase is structured to make adding new console support straightforward:
+
+1. **Create Console Handler**: Implement the `ConsoleHandler` interface in `internal/consoles/`
+2. **Add Detection Rules**: Update `internal/detect/indicators.go` with console-specific indicators
+3. **Register Handler**: Add the new handler to the registry in `internal/consoles/registry.go`
+4. **Add Parser**: If needed, create console-specific parsers in `internal/parsers/`
 
 ## Version
 

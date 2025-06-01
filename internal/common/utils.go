@@ -13,19 +13,44 @@ import (
 	"github.com/NeilGraham/rom-organizer/internal/parsers"
 )
 
-// GameInfo holds information about a PS3 game
+// GameInfo holds information about a game from any console
 type GameInfo struct {
-	Title   string
-	TitleID string
-	Source  string
+	Title    string // Game title
+	GameID   string // Console-specific game ID (e.g., BLUS30490 for PS3, etc.)
+	Console  string // Console name (e.g., "PlayStation 3", "PlayStation 2", etc.)
+	Region   string // Game region if available
+	Version  string // Game version if available
+	Category string // Game category if available
+	Source   string // Source path where the game was found
+}
+
+// GameMetadata represents metadata that can be extracted from a game
+type GameMetadata struct {
+	GameInfo *GameInfo
+	RawData  map[string]interface{} // Raw metadata key-value pairs
 }
 
 // OrganizedDirInfo holds information about an organized game directory
 type OrganizedDirInfo struct {
-	IsOrganized     bool
-	HasCompressed   bool // has game.7z
-	HasDecompressed bool // has game/ folder
-	GameInfo        *GameInfo
+	IsOrganized     bool      // Whether the directory is already organized
+	HasCompressed   bool      // Has compressed format (e.g., game.7z)
+	HasDecompressed bool      // Has decompressed format (e.g., game/ folder)
+	GameInfo        *GameInfo // Game information if available
+}
+
+// ConsoleHandler defines the interface for console-specific operations
+type ConsoleHandler interface {
+	// ExtractGameInfo extracts game information from a source path
+	ExtractGameInfo(sourcePath string, verbose bool) (*GameInfo, error)
+
+	// GetConsoleDisplayName returns the human-readable console name
+	GetConsoleDisplayName() string
+
+	// GetGameDirectoryPattern returns the expected directory pattern for this console
+	GetGameDirectoryPattern() string
+
+	// ValidateGameStructure checks if the source path contains a valid game structure
+	ValidateGameStructure(sourcePath string) error
 }
 
 // SanitizeFilename removes or replaces characters that are not safe for filenames
@@ -44,143 +69,10 @@ func SanitizeFilename(filename string) string {
 	return result
 }
 
-// ExtractGameInfo extracts game information from a source path
-func ExtractGameInfo(sourcePath string, verbose bool) (*GameInfo, error) {
-	sourceInfo, err := os.Stat(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("source path does not exist: %w", err)
-	}
-
-	var paramSFOPath string
-	var gameRootPath string
-
-	if sourceInfo.IsDir() {
-		// Source is a directory - search for PS3_GAME recursively
-		foundGameRoot, foundParamSFO, err := findPS3GameRecursively(sourcePath, verbose)
-		if err != nil {
-			return nil, err
-		}
-		gameRootPath = foundGameRoot
-		paramSFOPath = foundParamSFO
-	} else {
-		// Source is likely an archive file
-		ext := strings.ToLower(filepath.Ext(sourcePath))
-		if ext != ".zip" {
-			return nil, fmt.Errorf("archive format %s not supported yet, please use .zip or extract to a folder", ext)
-		}
-
-		// Extract archive to temporary directory
-		tempDir, err := os.MkdirTemp("", "ps3-extract-*")
-		if err != nil {
-			return nil, fmt.Errorf("creating temporary directory: %w", err)
-		}
-
-		if verbose {
-			fmt.Printf("Extracting archive to temporary directory: %s\n", tempDir)
-		}
-
-		if err := ExtractZip(sourcePath, tempDir); err != nil {
-			os.RemoveAll(tempDir)
-			return nil, fmt.Errorf("extracting archive: %w", err)
-		}
-
-		// Search for PS3_GAME recursively in extracted archive
-		foundGameRoot, foundParamSFO, err := findPS3GameRecursively(tempDir, verbose)
-		if err != nil {
-			os.RemoveAll(tempDir)
-			return nil, err
-		}
-		gameRootPath = foundGameRoot
-		paramSFOPath = foundParamSFO
-	}
-
-	// Parse PARAM.SFO to get game information
-	if verbose {
-		fmt.Printf("Reading game information from: %s\n", paramSFOPath)
-	}
-
-	paramSFOData, err := os.ReadFile(paramSFOPath)
-	if err != nil {
-		return nil, fmt.Errorf("reading PARAM.SFO: %w", err)
-	}
-
-	paramSFO, err := parsers.ParseParamSFO(paramSFOData)
-	if err != nil {
-		return nil, fmt.Errorf("parsing PARAM.SFO: %w", err)
-	}
-
-	title := paramSFO.GetTitle()
-	titleID := paramSFO.GetTitleID()
-
-	if title == "" {
-		return nil, fmt.Errorf("game title not found in PARAM.SFO")
-	}
-	if titleID == "" {
-		return nil, fmt.Errorf("title ID not found in PARAM.SFO")
-	}
-
-	return &GameInfo{
-		Title:   title,
-		TitleID: titleID,
-		Source:  gameRootPath,
-	}, nil
-}
-
-// findPS3GameRecursively searches for PS3_GAME/PARAM.SFO recursively in a directory
-func findPS3GameRecursively(rootPath string, verbose bool) (gameRoot, paramSFOPath string, err error) {
-	// First check if PS3_GAME exists at the root level (common case)
-	paramSFOPath = filepath.Join(rootPath, "PS3_GAME", "PARAM.SFO")
-	if _, err := os.Stat(paramSFOPath); err == nil {
-		if verbose {
-			fmt.Printf("Found PS3_GAME at root level: %s\n", rootPath)
-		}
-		return rootPath, paramSFOPath, nil
-	}
-
-	if verbose {
-		fmt.Printf("PS3_GAME not found at root level, searching recursively in: %s\n", rootPath)
-	}
-
-	// Recursively search for PS3_GAME/PARAM.SFO
-	var foundPath string
-	err = filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Check if this is a PARAM.SFO file
-		if info.Name() == "PARAM.SFO" {
-			// Check if it's in a PS3_GAME directory
-			parentDir := filepath.Dir(path)
-			if filepath.Base(parentDir) == "PS3_GAME" {
-				// Found PS3_GAME/PARAM.SFO - the game root is the parent of PS3_GAME
-				foundPath = filepath.Dir(parentDir)
-				if verbose {
-					fmt.Printf("Found PS3_GAME in nested directory: %s\n", foundPath)
-				}
-				return filepath.SkipDir // Stop searching
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return "", "", fmt.Errorf("error searching for PS3_GAME: %w", err)
-	}
-
-	if foundPath == "" {
-		return "", "", fmt.Errorf("PS3_GAME/PARAM.SFO not found in %s: ensure the source contains a PS3_GAME folder with PARAM.SFO", rootPath)
-	}
-
-	paramSFOPath = filepath.Join(foundPath, "PS3_GAME", "PARAM.SFO")
-	return foundPath, paramSFOPath, nil
-}
-
 // GenerateTargetPath creates the target directory path for a game
 func GenerateTargetPath(gameInfo *GameInfo, outputDir string) string {
 	sanitizedTitle := SanitizeFilename(gameInfo.Title)
-	targetDirName := fmt.Sprintf("%s [%s]", sanitizedTitle, gameInfo.TitleID)
+	targetDirName := fmt.Sprintf("%s [%s]", sanitizedTitle, gameInfo.GameID)
 	return filepath.Join(outputDir, targetDirName)
 }
 
@@ -487,7 +379,7 @@ func DetectOrganizedDirectory(sourcePath string, verbose bool) (*OrganizedDirInf
 			if _, err := os.Stat(paramSFOPath); err == nil {
 				if gameInfo, err := extractGameInfoFromParamSFO(paramSFOPath); err == nil {
 					title = gameInfo.Title
-					titleID = gameInfo.TitleID
+					titleID = gameInfo.GameID
 				}
 			}
 		}
@@ -495,7 +387,8 @@ func DetectOrganizedDirectory(sourcePath string, verbose bool) (*OrganizedDirInf
 
 	gameInfo := &GameInfo{
 		Title:   title,
-		TitleID: titleID,
+		GameID:  titleID,
+		Console: "PlayStation 3",
 		Source:  sourcePath,
 	}
 
@@ -531,7 +424,8 @@ func extractGameInfoFromParamSFO(paramSFOPath string) (*GameInfo, error) {
 
 	return &GameInfo{
 		Title:   title,
-		TitleID: titleID,
+		GameID:  titleID,
+		Console: "PlayStation 3",
 		Source:  filepath.Dir(filepath.Dir(paramSFOPath)), // parent of PS3_GAME
 	}, nil
 }

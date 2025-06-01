@@ -1,3 +1,5 @@
+// Package parsers provides console-specific file format parsers
+// This file contains parsers for PlayStation 3 (PS3) specific file formats
 package parsers
 
 import (

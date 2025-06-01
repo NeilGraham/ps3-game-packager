@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/NeilGraham/rom-organizer/internal/consoles"
 	"github.com/NeilGraham/rom-organizer/internal/detect"
 	"github.com/NeilGraham/rom-organizer/internal/organizer"
 	"github.com/NeilGraham/rom-organizer/internal/packager"
@@ -42,7 +43,7 @@ var metadataCmd = &cobra.Command{
 	Long: `Parse metadata from ROM files and extract game information.
 
 This command can extract metadata from various ROM file formats including:
-- PS3 PARAM.SFO files (contains title, title ID, version, and other game attributes)
+- PlayStation 3 PARAM.SFO files (contains title, title ID, version, and other game attributes)
 
 More ROM formats will be supported in future versions.
 
@@ -58,10 +59,10 @@ Examples:
 var compressCmd = &cobra.Command{
 	Use:     "compress <source> [source...]",
 	Aliases: []string{"c"},
-	Short:   "Compress PS3 games into 7z format",
-	Long: `Compress PS3 game folders or archives into 7z format.
+	Short:   "Compress games into 7z format",
+	Long: `Compress game folders or archives into 7z format.
 
-This command takes one or more decrypted PS3 ISO game folders or archive files and organizes them
+This command takes one or more game folders or archive files and organizes them
 into a standardized directory structure with compressed game files:
 
 {Game Name} [{Game ID}]/
@@ -69,7 +70,7 @@ into a standardized directory structure with compressed game files:
 ├── _updates/        (updates folder - empty for now)
 └── _dlc/           (DLC folder - empty for now)
 
-The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
+The game information (title and ID) is extracted from console-specific metadata files.
 
 Examples:
   rom-organizer compress /path/to/game_folder
@@ -83,10 +84,10 @@ Examples:
 var decompressCmd = &cobra.Command{
 	Use:     "decompress <source> [source...]",
 	Aliases: []string{"d"},
-	Short:   "Decompress PS3 games into folder format",
-	Long: `Decompress PS3 game folders or archives into folder format.
+	Short:   "Decompress games into folder format",
+	Long: `Decompress game folders or archives into folder format.
 
-This command takes one or more decrypted PS3 ISO game folders or archive files and organizes them
+This command takes one or more game folders or archive files and organizes them
 into a standardized directory structure with decompressed game files:
 
 {Game Name} [{Game ID}]/
@@ -94,7 +95,7 @@ into a standardized directory structure with decompressed game files:
 ├── _updates/        (updates folder - empty for now)
 └── _dlc/           (DLC folder - empty for now)
 
-The game information (title and ID) is extracted from PS3_GAME/PARAM.SFO.
+The game information (title and ID) is extracted from console-specific metadata files.
 
 Examples:
   rom-organizer decompress /path/to/game_folder
@@ -108,10 +109,10 @@ Examples:
 var organizeCmd = &cobra.Command{
 	Use:     "organize <source> [source...]",
 	Aliases: []string{"o"},
-	Short:   "Organize PS3 games while keeping their existing format",
-	Long: `Organize PS3 game folders into the standard structure while keeping their existing format.
+	Short:   "Organize games while keeping their existing format",
+	Long: `Organize game folders into the standard structure while keeping their existing format.
 
-This command takes one or more PS3 game folders (or already organized game directories) and 
+This command takes one or more game folders (or already organized game directories) and 
 organizes them into the standardized directory structure while preserving the 
 original format (compressed or decompressed):
 
@@ -219,6 +220,9 @@ func metadataHandler(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
+	// Get console registry
+	registry := consoles.NewRegistry()
+
 	// Handle different console types
 	switch detection.ConsoleType {
 	case detect.PS3:
@@ -233,6 +237,9 @@ func metadataHandler(cmd *cobra.Command, args []string) error {
 		}
 		return fmt.Errorf("unable to determine console type for: %s", path)
 	default:
+		if !registry.IsSupported(detection.ConsoleType) {
+			return fmt.Errorf("metadata extraction for %s is not yet implemented", detection.ConsoleType.String())
+		}
 		return fmt.Errorf("metadata extraction for %s is not yet implemented", detection.ConsoleType.String())
 	}
 }
@@ -260,7 +267,7 @@ func handlePS3Metadata(originalPath string, detection *detect.DetectionResult) e
 
 	paramSFO, err := parsers.ParseParamSFO(data)
 	if err != nil {
-		return fmt.Errorf("parsing PS3 PARAM.SFO: %w", err)
+		return fmt.Errorf("parsing PlayStation 3 PARAM.SFO: %w", err)
 	}
 
 	// Output based on format preference
@@ -277,7 +284,7 @@ func outputText(paramSFO *parsers.ParamSFO, verbose bool) {
 	if verbose {
 		fmt.Printf("ROM Metadata Parser\n")
 		fmt.Printf("===================\n")
-		fmt.Printf("File Type:       PS3 PARAM.SFO\n")
+		fmt.Printf("File Type:       PlayStation 3 PARAM.SFO\n")
 		fmt.Printf("Version:         %d.%d\n",
 			paramSFO.Header.Version&0xFF,
 			(paramSFO.Header.Version>>8)&0xFF)
@@ -319,9 +326,9 @@ func outputText(paramSFO *parsers.ParamSFO, verbose bool) {
 	}
 
 	if titleID != "" {
-		fmt.Printf("Title ID:    %s\n", titleID)
+		fmt.Printf("Game ID:     %s\n", titleID)
 	} else {
-		fmt.Println("Title ID:    [not found]")
+		fmt.Println("Game ID:     [not found]")
 	}
 
 	// Show some additional useful info
@@ -366,7 +373,7 @@ func outputJSON(paramSFO *parsers.ParamSFO) {
 	fmt.Printf("  },\n")
 	fmt.Printf("  \"summary\": {\n")
 	fmt.Printf("    \"title\": \"%s\",\n", paramSFO.GetTitle())
-	fmt.Printf("    \"titleId\": \"%s\",\n", paramSFO.GetTitleID())
+	fmt.Printf("    \"gameId\": \"%s\",\n", paramSFO.GetTitleID())
 	fmt.Printf("    \"appVersion\": \"%s\",\n", paramSFO.GetString("APP_VER"))
 	fmt.Printf("    \"category\": \"%s\"\n", paramSFO.GetString("CATEGORY"))
 	fmt.Printf("  }\n")

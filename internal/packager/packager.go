@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/NeilGraham/rom-organizer/internal/common"
+	"github.com/NeilGraham/rom-organizer/internal/consoles"
+	"github.com/NeilGraham/rom-organizer/internal/detect"
 )
 
 // PackageOptions holds options for packaging operations
@@ -15,10 +17,10 @@ type PackageOptions struct {
 	Verbose   bool
 }
 
-// PackageGame packages a PS3 game into compressed format (game.7z)
+// PackageGame packages a game into compressed format (game.7z)
 func PackageGame(sourcePath string, opts PackageOptions) error {
 	if opts.Verbose {
-		fmt.Printf("Packaging PS3 game from: %s\n", sourcePath)
+		fmt.Printf("Packaging game from: %s\n", sourcePath)
 		fmt.Printf("Output directory: %s\n", opts.OutputDir)
 	}
 
@@ -32,10 +34,31 @@ func PackageGame(sourcePath string, opts PackageOptions) error {
 		return handleOrganizedDirectoryForPackaging(sourcePath, organizedInfo, opts)
 	}
 
-	// Extract game information for unorganized directories
-	gameInfo, err := common.ExtractGameInfo(sourcePath, opts.Verbose)
+	// Use detection system to identify console type and extract game info
+	detection, err := detect.DetectConsole(sourcePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("detecting console type: %w", err)
+	}
+
+	if detection.ConsoleType == detect.Unknown {
+		return fmt.Errorf("unable to determine console type for: %s", sourcePath)
+	}
+
+	// Get console handler
+	registry := consoles.NewRegistry()
+	if !registry.IsSupported(detection.ConsoleType) {
+		return fmt.Errorf("packaging for %s is not yet implemented", detection.ConsoleType.String())
+	}
+
+	handler, err := registry.GetHandler(detection.ConsoleType)
+	if err != nil {
+		return fmt.Errorf("getting console handler: %w", err)
+	}
+
+	// Extract game information using the console handler
+	gameInfo, err := handler.ExtractGameInfo(detection.GamePath, opts.Verbose)
+	if err != nil {
+		return fmt.Errorf("extracting game info: %w", err)
 	}
 
 	// Generate target path
@@ -43,7 +66,8 @@ func PackageGame(sourcePath string, opts PackageOptions) error {
 
 	if opts.Verbose {
 		fmt.Printf("Game Title: %s\n", gameInfo.Title)
-		fmt.Printf("Title ID: %s\n", gameInfo.TitleID)
+		fmt.Printf("Game ID: %s\n", gameInfo.GameID)
+		fmt.Printf("Console: %s\n", gameInfo.Console)
 		fmt.Printf("Target directory: %s\n", targetPath)
 	}
 
@@ -63,9 +87,10 @@ func PackageGame(sourcePath string, opts PackageOptions) error {
 		return fmt.Errorf("creating game.7z archive: %w", err)
 	}
 
-	fmt.Printf("Successfully packaged PS3 game:\n")
+	fmt.Printf("Successfully packaged %s game:\n", gameInfo.Console)
 	fmt.Printf("  Title: %s\n", gameInfo.Title)
-	fmt.Printf("  Title ID: %s\n", gameInfo.TitleID)
+	fmt.Printf("  Game ID: %s\n", gameInfo.GameID)
+	fmt.Printf("  Console: %s\n", gameInfo.Console)
 	fmt.Printf("  Format: Compressed (game.7z)\n")
 	fmt.Printf("  Output: %s\n", targetPath)
 
@@ -82,7 +107,8 @@ func handleOrganizedDirectoryForPackaging(sourcePath string, organizedInfo *comm
 		}
 		fmt.Printf("Directory is already packaged:\n")
 		fmt.Printf("  Title: %s\n", organizedInfo.GameInfo.Title)
-		fmt.Printf("  Title ID: %s\n", organizedInfo.GameInfo.TitleID)
+		fmt.Printf("  Game ID: %s\n", organizedInfo.GameInfo.GameID)
+		fmt.Printf("  Console: %s\n", organizedInfo.GameInfo.Console)
 		fmt.Printf("  Format: Compressed (game.7z)\n")
 		fmt.Printf("  Location: %s\n", sourcePath)
 		return nil
@@ -115,7 +141,8 @@ func handleOrganizedDirectoryForPackaging(sourcePath string, organizedInfo *comm
 
 		fmt.Printf("Successfully converted to compressed format:\n")
 		fmt.Printf("  Title: %s\n", organizedInfo.GameInfo.Title)
-		fmt.Printf("  Title ID: %s\n", organizedInfo.GameInfo.TitleID)
+		fmt.Printf("  Game ID: %s\n", organizedInfo.GameInfo.GameID)
+		fmt.Printf("  Console: %s\n", organizedInfo.GameInfo.Console)
 		fmt.Printf("  Format: Compressed (game.7z)\n")
 		fmt.Printf("  Location: %s\n", sourcePath)
 		return nil
@@ -124,10 +151,10 @@ func handleOrganizedDirectoryForPackaging(sourcePath string, organizedInfo *comm
 	return fmt.Errorf("organized directory has unexpected format")
 }
 
-// UnpackageGame unpacks a PS3 game into decompressed format (game/ folder)
+// UnpackageGame unpacks a game into decompressed format (game/ folder)
 func UnpackageGame(sourcePath string, opts PackageOptions) error {
 	if opts.Verbose {
-		fmt.Printf("Unpackaging PS3 game from: %s\n", sourcePath)
+		fmt.Printf("Unpackaging game from: %s\n", sourcePath)
 		fmt.Printf("Output directory: %s\n", opts.OutputDir)
 	}
 
@@ -141,10 +168,31 @@ func UnpackageGame(sourcePath string, opts PackageOptions) error {
 		return handleOrganizedDirectoryForUnpackaging(sourcePath, organizedInfo, opts)
 	}
 
-	// Extract game information for unorganized directories
-	gameInfo, err := common.ExtractGameInfo(sourcePath, opts.Verbose)
+	// Use detection system to identify console type and extract game info
+	detection, err := detect.DetectConsole(sourcePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("detecting console type: %w", err)
+	}
+
+	if detection.ConsoleType == detect.Unknown {
+		return fmt.Errorf("unable to determine console type for: %s", sourcePath)
+	}
+
+	// Get console handler
+	registry := consoles.NewRegistry()
+	if !registry.IsSupported(detection.ConsoleType) {
+		return fmt.Errorf("unpackaging for %s is not yet implemented", detection.ConsoleType.String())
+	}
+
+	handler, err := registry.GetHandler(detection.ConsoleType)
+	if err != nil {
+		return fmt.Errorf("getting console handler: %w", err)
+	}
+
+	// Extract game information using the console handler
+	gameInfo, err := handler.ExtractGameInfo(detection.GamePath, opts.Verbose)
+	if err != nil {
+		return fmt.Errorf("extracting game info: %w", err)
 	}
 
 	// Generate target path
@@ -152,7 +200,8 @@ func UnpackageGame(sourcePath string, opts PackageOptions) error {
 
 	if opts.Verbose {
 		fmt.Printf("Game Title: %s\n", gameInfo.Title)
-		fmt.Printf("Title ID: %s\n", gameInfo.TitleID)
+		fmt.Printf("Game ID: %s\n", gameInfo.GameID)
+		fmt.Printf("Console: %s\n", gameInfo.Console)
 		fmt.Printf("Target directory: %s\n", targetPath)
 	}
 
@@ -172,9 +221,10 @@ func UnpackageGame(sourcePath string, opts PackageOptions) error {
 		return fmt.Errorf("copying game files: %w", err)
 	}
 
-	fmt.Printf("Successfully unpackaged PS3 game:\n")
+	fmt.Printf("Successfully unpackaged %s game:\n", gameInfo.Console)
 	fmt.Printf("  Title: %s\n", gameInfo.Title)
-	fmt.Printf("  Title ID: %s\n", gameInfo.TitleID)
+	fmt.Printf("  Game ID: %s\n", gameInfo.GameID)
+	fmt.Printf("  Console: %s\n", gameInfo.Console)
 	fmt.Printf("  Format: Decompressed (game/ folder)\n")
 	fmt.Printf("  Output: %s\n", targetPath)
 
@@ -191,7 +241,8 @@ func handleOrganizedDirectoryForUnpackaging(sourcePath string, organizedInfo *co
 		}
 		fmt.Printf("Directory is already unpackaged:\n")
 		fmt.Printf("  Title: %s\n", organizedInfo.GameInfo.Title)
-		fmt.Printf("  Title ID: %s\n", organizedInfo.GameInfo.TitleID)
+		fmt.Printf("  Game ID: %s\n", organizedInfo.GameInfo.GameID)
+		fmt.Printf("  Console: %s\n", organizedInfo.GameInfo.Console)
 		fmt.Printf("  Format: Decompressed (game/ folder)\n")
 		fmt.Printf("  Location: %s\n", sourcePath)
 		return nil
@@ -238,7 +289,8 @@ func handleOrganizedDirectoryForUnpackaging(sourcePath string, organizedInfo *co
 
 		fmt.Printf("Successfully converted to decompressed format:\n")
 		fmt.Printf("  Title: %s\n", organizedInfo.GameInfo.Title)
-		fmt.Printf("  Title ID: %s\n", organizedInfo.GameInfo.TitleID)
+		fmt.Printf("  Game ID: %s\n", organizedInfo.GameInfo.GameID)
+		fmt.Printf("  Console: %s\n", organizedInfo.GameInfo.Console)
 		fmt.Printf("  Format: Decompressed (game/ folder)\n")
 		fmt.Printf("  Location: %s\n", sourcePath)
 		return nil
@@ -247,7 +299,7 @@ func handleOrganizedDirectoryForUnpackaging(sourcePath string, organizedInfo *co
 	return fmt.Errorf("organized directory has unexpected format")
 }
 
-// PackageGames packages multiple PS3 games into compressed format (game.7z)
+// PackageGames packages multiple games into compressed format (game.7z)
 func PackageGames(sourcePaths []string, opts PackageOptions) error {
 	var errors []error
 	successCount := 0
@@ -280,7 +332,7 @@ func PackageGames(sourcePaths []string, opts PackageOptions) error {
 	return nil
 }
 
-// UnpackageGames unpacks multiple PS3 games into decompressed format (game/ folder)
+// UnpackageGames unpacks multiple games into decompressed format (game/ folder)
 func UnpackageGames(sourcePaths []string, opts PackageOptions) error {
 	var errors []error
 	successCount := 0
