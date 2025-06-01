@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/NeilGraham/ps3-game-packager/internal/common"
 )
@@ -24,11 +23,37 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 	}
 
 	// Check if this is an existing organized game directory
-	if isOrganizedGameDir(sourcePath) {
-		return organizeExistingGameDir(sourcePath, opts)
+	organizedInfo, err := common.DetectOrganizedDirectory(sourcePath, opts.Verbose)
+	if err != nil {
+		return fmt.Errorf("checking if directory is organized: %w", err)
 	}
 
-	// Extract game information
+	if organizedInfo.IsOrganized {
+		if opts.Verbose {
+			fmt.Printf("Source is already an organized game directory\n")
+			fmt.Printf("No action needed - directory is already in the correct format\n")
+		}
+
+		// Determine format from contents
+		format := "Unknown"
+		if organizedInfo.HasCompressed && organizedInfo.HasDecompressed {
+			format = "Mixed (both game.7z and game/ folder)"
+		} else if organizedInfo.HasCompressed {
+			format = "Compressed (game.7z)"
+		} else if organizedInfo.HasDecompressed {
+			format = "Decompressed (game/ folder)"
+		}
+
+		fmt.Printf("Directory is already organized:\n")
+		fmt.Printf("  Title: %s\n", organizedInfo.GameInfo.Title)
+		fmt.Printf("  Title ID: %s\n", organizedInfo.GameInfo.TitleID)
+		fmt.Printf("  Format: %s\n", format)
+		fmt.Printf("  Location: %s\n", sourcePath)
+
+		return nil
+	}
+
+	// Extract game information for unorganized directories
 	gameInfo, err := common.ExtractGameInfo(sourcePath, opts.Verbose)
 	if err != nil {
 		return err
@@ -74,85 +99,6 @@ func OrganizeGame(sourcePath string, opts OrganizeOptions) error {
 	fmt.Printf("Successfully organized PS3 game:\n")
 	fmt.Printf("  Title: %s\n", gameInfo.Title)
 	fmt.Printf("  Title ID: %s\n", gameInfo.TitleID)
-	fmt.Printf("  Format: %s\n", format)
-	fmt.Printf("  Output: %s\n", targetPath)
-
-	return nil
-}
-
-// isOrganizedGameDir checks if the source is already an organized game directory
-func isOrganizedGameDir(sourcePath string) bool {
-	// Check if this looks like an organized game directory
-	// Format: "{Game Name} [{Game ID}]/"
-	sourceName := filepath.Base(sourcePath)
-
-	// Look for pattern ending with [XXXX#####] where X is letter and # is digit
-	if strings.Contains(sourceName, "[") && strings.Contains(sourceName, "]") {
-		// Check if it has the expected subdirectories
-		gameFile := filepath.Join(sourcePath, "game.7z")
-		gameDir := filepath.Join(sourcePath, "game")
-		updatesDir := filepath.Join(sourcePath, "_updates")
-		dlcDir := filepath.Join(sourcePath, "_dlc")
-
-		// Must have either game.7z or game/ directory, plus _updates and _dlc
-		hasGame := false
-		if _, err := os.Stat(gameFile); err == nil {
-			hasGame = true
-		}
-		if _, err := os.Stat(gameDir); err == nil {
-			hasGame = true
-		}
-
-		hasUpdates := false
-		if _, err := os.Stat(updatesDir); err == nil {
-			hasUpdates = true
-		}
-
-		hasDLC := false
-		if _, err := os.Stat(dlcDir); err == nil {
-			hasDLC = true
-		}
-
-		return hasGame && hasUpdates && hasDLC
-	}
-
-	return false
-}
-
-// organizeExistingGameDir reorganizes an already organized game directory
-func organizeExistingGameDir(sourcePath string, opts OrganizeOptions) error {
-	if opts.Verbose {
-		fmt.Printf("Source appears to be an already organized game directory\n")
-	}
-
-	// Simply copy the entire organized structure
-	sourceName := filepath.Base(sourcePath)
-	targetPath := filepath.Join(opts.OutputDir, sourceName)
-
-	if opts.Verbose {
-		fmt.Printf("Copying organized game directory to: %s\n", targetPath)
-	}
-
-	// Check if target already exists
-	if _, err := os.Stat(targetPath); err == nil && !opts.Force {
-		return fmt.Errorf("target directory already exists: %s (use --force to overwrite)", targetPath)
-	}
-
-	// Copy the entire directory structure
-	if err := common.CopyDir(sourcePath, targetPath); err != nil {
-		return fmt.Errorf("copying organized game directory: %w", err)
-	}
-
-	// Determine format from contents
-	format := "Unknown"
-	if _, err := os.Stat(filepath.Join(targetPath, "game.7z")); err == nil {
-		format = "Compressed (game.7z)"
-	} else if _, err := os.Stat(filepath.Join(targetPath, "game")); err == nil {
-		format = "Decompressed (game/ folder)"
-	}
-
-	fmt.Printf("Successfully organized PS3 game:\n")
-	fmt.Printf("  Directory: %s\n", sourceName)
 	fmt.Printf("  Format: %s\n", format)
 	fmt.Printf("  Output: %s\n", targetPath)
 

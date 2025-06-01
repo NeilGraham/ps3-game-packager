@@ -20,6 +20,14 @@ type GameInfo struct {
 	Source  string
 }
 
+// OrganizedDirInfo holds information about an organized game directory
+type OrganizedDirInfo struct {
+	IsOrganized     bool
+	HasCompressed   bool // has game.7z
+	HasDecompressed bool // has game/ folder
+	GameInfo        *GameInfo
+}
+
 // SanitizeFilename removes or replaces characters that are not safe for filenames
 func SanitizeFilename(filename string) string {
 	// Replace problematic characters with underscores
@@ -286,19 +294,35 @@ Linux:
   - Arch Linux: sudo pacman -S p7zip`)
 	}
 
+	// Convert to absolute paths to avoid issues with directory changes
+	absSourceDir, err := filepath.Abs(sourceDir)
+	if err != nil {
+		return fmt.Errorf("getting absolute path for source directory: %w", err)
+	}
+
+	absArchivePath, err := filepath.Abs(archivePath)
+	if err != nil {
+		return fmt.Errorf("getting absolute path for archive: %w", err)
+	}
+
 	// Build command arguments for maximum compression
+	// We use "." to archive everything in the current directory (after cd)
 	args := []string{
-		"a",                           // add to archive
-		"-t7z",                        // archive type 7z
-		"-mx=9",                       // maximum compression level
-		"-mfb=64",                     // number of fast bytes for LZMA
-		"-md=32m",                     // dictionary size
-		"-ms=on",                      // solid archive for better compression
-		archivePath,                   // output archive path
-		filepath.Join(sourceDir, "*"), // source files (all files in source directory)
+		"a",            // add to archive
+		"-t7z",         // archive type 7z
+		"-mx=9",        // maximum compression level
+		"-mfb=64",      // number of fast bytes for LZMA
+		"-md=32m",      // dictionary size
+		"-ms=on",       // solid archive for better compression
+		absArchivePath, // output archive path (absolute)
+		".",            // source files (current directory contents)
 	}
 
 	execCmd := exec.Command(cmd, args...)
+
+	// Change working directory to source directory
+	// This ensures only the contents are archived, not the directory name
+	execCmd.Dir = absSourceDir
 
 	// Capture output for debugging
 	var stdout, stderr bytes.Buffer
@@ -309,6 +333,7 @@ Linux:
 		return fmt.Errorf(`7z command failed: %w
 
 Command: %s %s
+Working Directory: %s
 Stdout: %s
 Stderr: %s
 
@@ -316,7 +341,7 @@ This usually indicates:
 1. The source directory is empty or doesn't exist
 2. Permission issues with the source or destination
 3. Insufficient disk space for the archive`,
-			err, cmd, strings.Join(args, " "), stdout.String(), stderr.String())
+			err, cmd, strings.Join(args, " "), absSourceDir, stdout.String(), stderr.String())
 	}
 
 	return nil
@@ -378,6 +403,197 @@ func CopyFile(src, dest string) error {
 	_, err = io.Copy(destFile, srcFile)
 	if err != nil {
 		return fmt.Errorf("copying data from %s to %s: %w", src, dest, err)
+	}
+
+	return nil
+}
+
+// DetectOrganizedDirectory checks if a directory is already organized and determines its format
+func DetectOrganizedDirectory(sourcePath string, verbose bool) (*OrganizedDirInfo, error) {
+	sourceName := filepath.Base(sourcePath)
+
+	// Check if this looks like an organized game directory
+	// Format: "{Game Name} [{Game ID}]/"
+	if !strings.Contains(sourceName, "[") || !strings.Contains(sourceName, "]") {
+		return &OrganizedDirInfo{IsOrganized: false}, nil
+	}
+
+	// Check if it has the expected subdirectories
+	gameFile := filepath.Join(sourcePath, "game.7z")
+	gameDir := filepath.Join(sourcePath, "game")
+	updatesDir := filepath.Join(sourcePath, "_updates")
+	dlcDir := filepath.Join(sourcePath, "_dlc")
+
+	hasCompressed := false
+	if _, err := os.Stat(gameFile); err == nil {
+		hasCompressed = true
+	}
+
+	hasDecompressed := false
+	if _, err := os.Stat(gameDir); err == nil {
+		hasDecompressed = true
+	}
+
+	hasUpdates := false
+	if _, err := os.Stat(updatesDir); err == nil {
+		hasUpdates = true
+	}
+
+	hasDLC := false
+	if _, err := os.Stat(dlcDir); err == nil {
+		hasDLC = true
+	}
+
+	// Must have either game.7z or game/ directory, plus _updates and _dlc to be considered organized
+	isOrganized := (hasCompressed || hasDecompressed) && hasUpdates && hasDLC
+
+	if !isOrganized {
+		return &OrganizedDirInfo{IsOrganized: false}, nil
+	}
+
+	if verbose {
+		fmt.Printf("Detected organized game directory: %s\n", sourcePath)
+		if hasCompressed {
+			fmt.Printf("  Format: Compressed (game.7z)\n")
+		}
+		if hasDecompressed {
+			fmt.Printf("  Format: Decompressed (game/ folder)\n")
+		}
+	}
+
+	// Try to extract game info from the directory name
+	// Format: "{Game Name} [{Game ID}]"
+	titleID := ""
+	title := ""
+
+	if start := strings.LastIndex(sourceName, "["); start != -1 {
+		if end := strings.LastIndex(sourceName, "]"); end != -1 && end > start {
+			titleID = sourceName[start+1 : end]
+			title = strings.TrimSpace(sourceName[:start])
+		}
+	}
+
+	// If we couldn't parse from directory name, try to read from PARAM.SFO
+	if title == "" || titleID == "" {
+		var paramSFOPath string
+		if hasDecompressed {
+			paramSFOPath = filepath.Join(gameDir, "PS3_GAME", "PARAM.SFO")
+		} else if hasCompressed {
+			// For compressed format, we can't easily read PARAM.SFO without extracting
+			// Use parsed values from directory name
+		}
+
+		if paramSFOPath != "" {
+			if _, err := os.Stat(paramSFOPath); err == nil {
+				if gameInfo, err := extractGameInfoFromParamSFO(paramSFOPath); err == nil {
+					title = gameInfo.Title
+					titleID = gameInfo.TitleID
+				}
+			}
+		}
+	}
+
+	gameInfo := &GameInfo{
+		Title:   title,
+		TitleID: titleID,
+		Source:  sourcePath,
+	}
+
+	return &OrganizedDirInfo{
+		IsOrganized:     true,
+		HasCompressed:   hasCompressed,
+		HasDecompressed: hasDecompressed,
+		GameInfo:        gameInfo,
+	}, nil
+}
+
+// extractGameInfoFromParamSFO extracts game info from a PARAM.SFO file
+func extractGameInfoFromParamSFO(paramSFOPath string) (*GameInfo, error) {
+	paramSFOData, err := os.ReadFile(paramSFOPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading PARAM.SFO: %w", err)
+	}
+
+	paramSFO, err := parsers.ParseParamSFO(paramSFOData)
+	if err != nil {
+		return nil, fmt.Errorf("parsing PARAM.SFO: %w", err)
+	}
+
+	title := paramSFO.GetTitle()
+	titleID := paramSFO.GetTitleID()
+
+	if title == "" {
+		return nil, fmt.Errorf("game title not found in PARAM.SFO")
+	}
+	if titleID == "" {
+		return nil, fmt.Errorf("title ID not found in PARAM.SFO")
+	}
+
+	return &GameInfo{
+		Title:   title,
+		TitleID: titleID,
+		Source:  filepath.Dir(filepath.Dir(paramSFOPath)), // parent of PS3_GAME
+	}, nil
+}
+
+// Extract7zArchive extracts a 7z archive to the specified destination
+func Extract7zArchive(archivePath, destDir string) error {
+	// Check for available 7z commands
+	possibleCommands := []string{"7z", "7za", "7zr"}
+	var cmd string
+
+	for _, cmdName := range possibleCommands {
+		if _, err := exec.LookPath(cmdName); err == nil {
+			cmd = cmdName
+			break
+		}
+	}
+
+	if cmd == "" {
+		return fmt.Errorf(`7z command not found in PATH. Please install 7-zip or p7zip:
+
+Windows:
+  - Download and install 7-Zip from https://www.7-zip.org/
+  - Or install via chocolatey: choco install 7zip
+  - Or install via winget: winget install 7zip.7zip
+
+macOS:
+  - Install via Homebrew: brew install p7zip
+  - Or install via MacPorts: sudo port install p7zip
+
+Linux:
+  - Ubuntu/Debian: sudo apt-get install p7zip-full
+  - CentOS/RHEL: sudo yum install p7zip
+  - Arch Linux: sudo pacman -S p7zip`)
+	}
+
+	// Build command arguments for extraction
+	args := []string{
+		"x",            // extract with full paths
+		archivePath,    // source archive
+		"-o" + destDir, // output directory (note: no space between -o and path)
+		"-y",           // assume yes for all prompts
+	}
+
+	execCmd := exec.Command(cmd, args...)
+
+	// Capture output for debugging
+	var stdout, stderr bytes.Buffer
+	execCmd.Stdout = &stdout
+	execCmd.Stderr = &stderr
+
+	if err := execCmd.Run(); err != nil {
+		return fmt.Errorf(`7z extraction failed: %w
+
+Command: %s %s
+Stdout: %s
+Stderr: %s
+
+This usually indicates:
+1. The archive file is corrupted or doesn't exist
+2. Permission issues with the source or destination
+3. Insufficient disk space for extraction`,
+			err, cmd, strings.Join(args, " "), stdout.String(), stderr.String())
 	}
 
 	return nil
