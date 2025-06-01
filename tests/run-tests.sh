@@ -80,6 +80,11 @@ echo "   • Compress command → tests/test-compressed/"
 echo "   • Decompress command → tests/test-decompressed/"
 echo
 
+# Set environment variable for Go tests to know about --keep flag
+if [ "$KEEP_ARTIFACTS" = true ]; then
+    export KEEP_TEST_ARTIFACTS=true
+fi
+
 # Change to cmd/rom-organizer directory for integration tests
 cd cmd/rom-organizer
 

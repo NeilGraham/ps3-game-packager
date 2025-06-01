@@ -72,9 +72,14 @@ func TestIntegration(t *testing.T) {
 	t.Log("Testing multiple path operations...")
 	testMultiplePaths(t)
 
-	// Clean up after tests
-	t.Log("Cleaning up test directories...")
-	cleanupTestDirs(t)
+	// Clean up after tests (unless --keep flag was used in shell script)
+	keepArtifacts := os.Getenv("KEEP_TEST_ARTIFACTS") == "true"
+	if keepArtifacts {
+		t.Log("🔒 Keeping test artifacts (KEEP_TEST_ARTIFACTS environment variable set)")
+	} else {
+		t.Log("Cleaning up test directories...")
+		cleanupTestDirs(t)
+	}
 
 	t.Log("✅ All integration tests passed!")
 }
@@ -466,10 +471,15 @@ func TestBuildBinary(t *testing.T) {
 func TestGenerateTestGamesScript(t *testing.T) {
 	tempDir := "../../tests/temp-test-games"
 
-	// Clean up temp directory
+	// Clean up temp directory (unless --keep flag was used)
+	keepArtifacts := os.Getenv("KEEP_TEST_ARTIFACTS") == "true"
 	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Logf("Warning: could not clean up temp directory: %v", err)
+		if !keepArtifacts {
+			if err := os.RemoveAll(tempDir); err != nil {
+				t.Logf("Warning: could not clean up temp directory: %v", err)
+			}
+		} else {
+			t.Logf("🔒 Keeping temp test games directory: %s", tempDir)
 		}
 	}()
 
