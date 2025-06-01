@@ -1,4 +1,3 @@
-
 # Golang
 # ______
 
@@ -40,6 +39,7 @@ go.work.sum
 
 PARAM.SFO
 rom-organizer
+rom-organizer.exe
 !cmd/rom-organizer/
 **/PS3_GAME
 **/PS3_DISC.SFB
