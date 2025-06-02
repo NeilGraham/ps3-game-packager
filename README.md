@@ -49,8 +49,6 @@ rom-organizer/
 │   │   └── types.go          # Detection types and results
 │   ├── organizer/             # Organization logic
 │   │   └── organizer.go      # Organize command implementation
-│   ├── packager/              # Packaging logic
-│   │   └── packager.go       # Package/unpackage implementations
 │   └── parsers/               # File parsers organized by console
 │       └── ps3.go            # PS3 PARAM.SFO parser
 ├── go.mod

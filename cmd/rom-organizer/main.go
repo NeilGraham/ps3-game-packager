@@ -9,7 +9,6 @@ import (
 	"github.com/NeilGraham/rom-organizer/internal/consoles"
 	"github.com/NeilGraham/rom-organizer/internal/detect"
 	"github.com/NeilGraham/rom-organizer/internal/organizer"
-	"github.com/NeilGraham/rom-organizer/internal/packager"
 	"github.com/NeilGraham/rom-organizer/internal/parsers"
 )
 
@@ -179,23 +178,25 @@ func init() {
 }
 
 func compressHandler(cmd *cobra.Command, args []string) error {
-	opts := packager.PackageOptions{
+	opts := organizer.OrganizeOptions{
 		OutputDir:  outputDir,
 		Force:      force,
 		Verbose:    verbose,
 		MoveSource: moveSource,
+		Format:     organizer.Compressed,
 	}
-	return packager.PackageGames(args, opts)
+	return organizer.OrganizeGames(args, opts)
 }
 
 func decompressHandler(cmd *cobra.Command, args []string) error {
-	opts := packager.PackageOptions{
+	opts := organizer.OrganizeOptions{
 		OutputDir:  outputDir,
 		Force:      force,
 		Verbose:    verbose,
 		MoveSource: moveSource,
+		Format:     organizer.Decompressed,
 	}
-	return packager.UnpackageGames(args, opts)
+	return organizer.OrganizeGames(args, opts)
 }
 
 func organizeHandler(cmd *cobra.Command, args []string) error {
@@ -204,6 +205,7 @@ func organizeHandler(cmd *cobra.Command, args []string) error {
 		Force:      force,
 		Verbose:    verbose,
 		MoveSource: moveSource,
+		Format:     organizer.KeepOriginal,
 	}
 	return organizer.OrganizeGames(args, opts)
 }
